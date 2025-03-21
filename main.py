@@ -2,6 +2,13 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 import mysql.connector
 
+def center_window(window, width=600, height=400):
+    screen_width = window.winfo_screenwidth()
+    screen_height = window.winfo_screenheight()
+    x = (screen_width - width) // 2
+    y = (screen_height - height) // 2
+    window.geometry(f"{width}x{height}+{x}+{y}")
+
 def connect_db():
     global conn, cursor
     username = username_entry.get()
@@ -37,20 +44,22 @@ def show_schema(event):
     try:
         cursor.execute(f"DESCRIBE {selected_table}")
         schema = cursor.fetchall()
-        schema_text.delete(1.0, tk.END)
-        schema_text.insert(tk.END, f"Schema of {selected_table}:\n\n")
+        
+        for row in schema_tree.get_children():
+            schema_tree.delete(row)
+        
         for column in schema:
-            schema_text.insert(tk.END, f"{column[0]} - {column[1]}\n")
+            schema_tree.insert("", tk.END, values=column)
     except mysql.connector.Error as err:
         messagebox.showerror("Error", f"Error fetching schema: {err}")
 
 def init_main_window(db_name):
-    global tables_listbox, schema_text
+    global tables_listbox, schema_tree
     root = tk.Tk()
     root.title("Database Schema Viewer")
-    root.geometry("600x400")
+    center_window(root, 800, 500)
     
-    ttk.Label(root, text=f"Connected to: {db_name}", font=("Arial", 14, "bold")).pack(pady=10)
+    ttk.Label(root, text=f"Connected To: {db_name}", font=("Arial", 14, "bold")).pack(pady=10)
     
     frame = ttk.Frame(root)
     frame.pack(pady=10, padx=10, fill=tk.BOTH, expand=True)
@@ -63,11 +72,19 @@ def init_main_window(db_name):
     scrollbar.pack(side=tk.LEFT, fill=tk.Y)
     tables_listbox.config(yscrollcommand=scrollbar.set)
     
-    schema_text = tk.Text(frame, width=50, height=15, wrap=tk.WORD)
-    schema_text.pack(side=tk.LEFT, padx=10, fill=tk.BOTH, expand=True)
+    schema_frame = ttk.Frame(frame)
+    schema_frame.pack(side=tk.LEFT, padx=10, fill=tk.BOTH, expand=True)
+    
+    columns = ("Field", "Type", "Null", "Key", "Default", "Extra")
+    schema_tree = ttk.Treeview(schema_frame, columns=columns, show="headings")
+    
+    for col in columns:
+        schema_tree.heading(col, text=col)
+        schema_tree.column(col, width=120, anchor="center")
+    
+    schema_tree.pack(fill=tk.BOTH, expand=True)
     
     get_tables()
-    
     root.mainloop()
     cursor.close()
     conn.close()
@@ -75,7 +92,7 @@ def init_main_window(db_name):
 # Login Window
 login_window = tk.Tk()
 login_window.title("Database Login")
-login_window.geometry("300x250")
+center_window(login_window, 400, 300)
 
 ttk.Label(login_window, text="MySQL Database Login", font=("Arial", 12, "bold")).pack(pady=10)
 
