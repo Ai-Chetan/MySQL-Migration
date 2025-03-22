@@ -33,10 +33,60 @@ def connect_db():
 def get_tables():
     try:
         cursor.execute("SHOW TABLES")
-        tables = [table[0] for table in cursor.fetchall()]
-        tables_listbox.delete(0, tk.END)
-        for table in tables:
-            tables_listbox.insert(tk.END, table)
+        all_tables = [table[0] for table in cursor.fetchall()]
+        tables_listbox.delete(0, tk.END)  # Clear previous entries
+        parsed_schema = parse_schema_file("schema.txt")
+
+        old_tables = []
+        new_tables = []
+
+        # Separate old and new tables
+        for table in all_tables:
+            if table.endswith("_new"):
+                new_tables.append(table)
+            else:
+                old_tables.append(table)
+
+        # Display Old Tables Heading
+        if old_tables:
+            tables_listbox.insert(tk.END, "=== Old Tables ===")
+            tables_listbox.insert(tk.END, "")
+
+            for table in old_tables:
+                cursor.execute(f"SHOW TABLES LIKE '{table}_new'")
+                new_table_exists = cursor.fetchone() is not None
+
+                index = tables_listbox.size()
+                tables_listbox.insert(tk.END, table)
+
+                if table not in parsed_schema:
+                    tables_listbox.itemconfig(index, {'fg': 'red'})  # Not in schema.txt
+                elif not new_table_exists:
+                    tables_listbox.itemconfig(index)  # In schema.txt, but _new not created
+                else:
+                    tables_listbox.itemconfig(index, {'fg': 'blue'})  # _new table exists
+
+        # Display New Tables Heading
+        if new_tables:
+            tables_listbox.insert(tk.END, "")
+            tables_listbox.insert(tk.END, "=== New Tables ===")
+            tables_listbox.insert(tk.END, "")
+
+            for table in new_tables:
+                index = tables_listbox.size()
+                tables_listbox.insert(tk.END, table)
+                tables_listbox.itemconfig(index)  # _new tables
+
+        # Disable create button for new tables
+        selected_index = tables_listbox.curselection()
+        if selected_index:
+            selected_table = tables_listbox.get(selected_index)
+            cursor.execute(f"SHOW TABLES LIKE '{selected_table}_new'")
+            if cursor.fetchone():
+                create_button.config(state=tk.DISABLED)
+            else:
+                create_button.config(state=tk.NORMAL)
+
     except mysql.connector.Error as err:
         messagebox.showerror("Error", f"Error fetching tables: {err}")
 
@@ -138,10 +188,24 @@ def copy_data_in_batches(table_name, old_schema, new_schema, cursor, conn):
 
 def create_new_table_and_copy_data():
     """Creates a new table with '_new' suffix and copies data from the old table."""
-    selected_table = tables_listbox.get(tables_listbox.curselection())
-    
-    if not selected_table:
-        messagebox.showerror("Error", "Please select a table first.")
+    selected_index = tables_listbox.curselection()
+
+    if not selected_index:
+        messagebox.showerror("Error", "Please select a valid table before creating a new one.")
+        return
+
+    selected_table = tables_listbox.get(selected_index)
+
+    if selected_table.startswith("===") or not selected_table.strip():
+        messagebox.showerror("Error", "Please select a valid table (not a heading).")
+        return
+
+    new_table_name = f"{selected_table}_new"
+
+    # Check if the new table already exists
+    cursor.execute(f"SHOW TABLES LIKE '{new_table_name}'")
+    if cursor.fetchone():
+        messagebox.showwarning("Warning", f"Table '{new_table_name}' already exists!")
         return
 
     try:
@@ -149,10 +213,9 @@ def create_new_table_and_copy_data():
         new_schema = parse_schema_file("schema.txt")
 
         if selected_table not in new_schema:
-            messagebox.showerror("Error", f"Table {selected_table} not found in schema file.")
+            messagebox.showerror("Error", f"Table '{selected_table}' not found in schema file.")
             return
-        
-        new_table_name = f"{selected_table}_new"
+
         new_columns = new_schema[selected_table]
 
         # Generate and execute CREATE TABLE statement
@@ -163,19 +226,16 @@ def create_new_table_and_copy_data():
 
         # Get existing schema from MySQL
         old_schema = get_existing_table_schema(selected_table, cursor)
-        common_columns = get_common_columns(old_schema, new_columns)
-
-        if not common_columns:
-            messagebox.showinfo("Info", f"No common columns found, skipping data migration for {selected_table}")
-            return
 
         # Copy data from old table to new table in batches
         copy_data_in_batches(selected_table, old_schema, new_columns, cursor, conn)
-        messagebox.showinfo("Success", f"Table {new_table_name} created and data copied successfully!")
+        messagebox.showinfo("Success", f"Table '{new_table_name}' created and data copied successfully!")
+
+        # Refresh table list
+        get_tables()
 
     except mysql.connector.Error as err:
         messagebox.showerror("Error", f"Database error: {err}")
-
 
 def init_main_window(db_name):
     global tables_listbox, schema_tree, root  # Make root global
@@ -209,8 +269,10 @@ def init_main_window(db_name):
     schema_tree.pack(fill=tk.BOTH, expand=True)
 
     # Move button creation inside the function
+    global create_button
     create_button = ttk.Button(root, text="Create New Table", command=create_new_table_and_copy_data)
     create_button.pack(pady=10)
+
 
     get_tables()
     root.mainloop()  # Start the GUI loop
