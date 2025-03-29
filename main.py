@@ -1,4 +1,5 @@
 import tkinter as tk
+import csv
 from tkinter import ttk, messagebox, filedialog, Toplevel, Scrollbar
 import mysql.connector
 import re
@@ -240,7 +241,7 @@ def check_constraints():
     create_button.config(state=tk.NORMAL if all_checked else tk.DISABLED)
 
 def view_data():
-    """Opens a new window to display the selected table's data."""
+    """Opens a new window to display the selected table's data and adds a download button."""
     selected_index = tables_listbox_old.curselection()
     if not selected_index:
         messagebox.showerror("Error", "Please select a table to view data.")
@@ -272,8 +273,21 @@ def view_data():
 
         data_tree.pack(fill=tk.BOTH, expand=True)
 
-        close_button = ttk.Button(data_window, text="Close", command=data_window.destroy)
-        close_button.pack(pady=10)
+        def download_data():
+            """Downloads the data to a CSV file."""
+            file_path = filedialog.asksaveasfilename(defaultextension=".csv", filetypes=[("CSV files", "*.csv"), ("All files", "*.*")])
+            if file_path:
+                try:
+                    with open(file_path, 'w', newline='', encoding='utf-8') as csvfile:
+                        csv_writer = csv.writer(csvfile)
+                        csv_writer.writerow(columns)  # Write header
+                        csv_writer.writerows(data)  # Write data
+                    messagebox.showinfo("Download Successful", f"Data downloaded to {file_path}")
+                except Exception as e:
+                    messagebox.showerror("Download Error", f"Failed to download data: {e}")
+
+        download_button = ttk.Button(data_window, text="Download Data", command=download_data)
+        download_button.pack(pady=10)
 
     except mysql.connector.Error as err:
         messagebox.showerror("Error", f"Database error: {err}")
