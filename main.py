@@ -15,25 +15,65 @@ def connect_db():
     global conn, cursor
     username = username_entry.get()
     password = password_entry.get()
-    database = dbname_entry.get()
     
     try:
         conn = mysql.connector.connect(
             host="localhost",
             user=username,
             password=password,
-            database=database,
             charset="utf8"
         )
         cursor = conn.cursor()
         login_window.destroy()
-        init_main_window(database)
+        init_main_window()
     except mysql.connector.Error as err:
         messagebox.showerror("Connection Error", f"Failed to connect: {err}")
 
+def populate_db_combobox():
+    try:
+        global cursor, db_combobox
+        cursor.execute("SHOW DATABASES")
+        databases = [db[0] for db in cursor.fetchall()]
+        db_combobox['values'] = databases
+        if databases:
+            db_combobox.current(0)
+    except mysql.connector.Error as err:
+        messagebox.showerror("Error", f"Failed to fetch databases: {err}")
+
+def select_database():
+    global conn, cursor, schema_file_path
+    
+    dbname = db_combobox.get()
+    schema_file_path = schema_file_entry.get()
+    
+    if not dbname:
+        messagebox.showerror("Error", "Please select a database")
+        return
+    
+    if not schema_file_path:
+        messagebox.showerror("Error", "Please select a schema file")
+        return
+    
+    try:
+        # Use the selected database
+        cursor.execute(f"USE {dbname}")
+        conn.commit()
+        
+        # Update UI to show connected database
+        db_label.config(text=f"Connected To: {dbname}")
+        
+        # Enable UI elements
+        tables_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+        
+        # Get tables
+        get_tables()
+        
+    except mysql.connector.Error as err:
+        messagebox.showerror("Database Error", f"Failed to select database: {err}")
+
 def get_tables():
     try:
-        global cursor, conn, tables_listbox_old, tables_listbox_new # make these global.
+        global cursor, conn, tables_listbox_old, tables_listbox_new, schema_file_path
         if not conn.is_connected():
             messagebox.showerror("Error", "Database connection lost.")
             return
@@ -46,7 +86,7 @@ def get_tables():
         tables_listbox_old.delete(0, tk.END)  # Clear previous entries
         tables_listbox_new.delete(0, tk.END)  # Clear previous entries
 
-        parsed_schema = parse_schema_file(schema_file_path) # schema_file_path is global.
+        parsed_schema = parse_schema_file(schema_file_path)
         old_tables = []
         new_tables = []
 
@@ -109,7 +149,7 @@ def show_schema(event):
     old_schema = []
     # Fetch schema from MySQL (Old Schema)
     try:
-        global cursor, conn, schema_file_path # added global schema_file_path.
+        global cursor, conn, schema_file_path
         if not conn.is_connected():
             messagebox.showerror("Error", "Database connection lost.")
             return
@@ -122,7 +162,7 @@ def show_schema(event):
     except mysql.connector.Error:
         messagebox.showerror("Error", f"Error fetching schema for {selected_table}")
 
-    new_schema = parse_schema_file(schema_file_path) # use the global schema_file_path.
+    new_schema = parse_schema_file(schema_file_path)
     new_schema_entries = []
     if selected_table in new_schema:
         for col, definition in new_schema[selected_table].items():
@@ -130,7 +170,7 @@ def show_schema(event):
             field_type = parts[0] if len(parts) > 0 else ""
             null_value = "NO" if "NOT NULL" in parts else "YES"
             key_value = ""
-            default_value = ""
+            default_value = "None"
             extra = ""
 
             # Handling different key constraints
@@ -145,7 +185,7 @@ def show_schema(event):
 
             # Extract AUTO_INCREMENT
             if "AUTO_INCREMENT" in str(definition):
-                extra = "AUTO_INCREMENT"
+                extra = "auto_increment"
 
             # Extract DEFAULT value (supports numbers, strings, and functions)
             default_match = re.search(r"DEFAULT\s+([\w\'\"]+)", str(definition), re.IGNORECASE)
@@ -213,25 +253,28 @@ def parse_schema_file(file_path):
     schema_dict = {}
     current_table = None
 
-    with open(file_path, "r") as file:
-        for line in file:
-            line = line.strip()
-            if not line:
-                continue  # Skip empty lines
+    try:
+        with open(file_path, "r") as file:
+            for line in file:
+                line = line.strip()
+                if not line:
+                    continue  # Skip empty lines
 
-            # Detect table name
-            if line.lower().startswith("table:"):
-                current_table = line.split()[1] if " " in line else None
-                schema_dict[current_table] = {}
-                continue
+                # Detect table name
+                if line.lower().startswith("table:"):
+                    current_table = line.split()[1] if " " in line else None
+                    schema_dict[current_table] = {}
+                    continue
 
-            if current_table:
-                # Capture column definitions, including CHECK and FOREIGN KEY
-                match = re.match(r"([\w_]+)\s+(.+)", line)
-                if match:
-                    column_name = match.group(1)
-                    attributes = match.group(2)
-                    schema_dict[current_table][column_name] = attributes
+                if current_table:
+                    # Capture column definitions, including CHECK and FOREIGN KEY
+                    match = re.match(r"([\w_]+)\s+(.+)", line)
+                    if match:
+                        column_name = match.group(1)
+                        attributes = match.group(2)
+                        schema_dict[current_table][column_name] = attributes
+    except Exception as e:
+        messagebox.showerror("Error", f"Error parsing schema file: {e}")
                     
     return schema_dict
 
@@ -374,7 +417,7 @@ def create_new_table_and_copy_data():
 
     try:
         # Parse schema file
-        new_schema = parse_schema_file("schema.txt")
+        new_schema = parse_schema_file(schema_file_path)
 
         if selected_table not in new_schema:
             messagebox.showerror("Error", f"Table '{selected_table}' not found in schema file.")
@@ -401,66 +444,121 @@ def create_new_table_and_copy_data():
     except mysql.connector.Error as err:
         messagebox.showerror("Error", f"Database error: {err}")
 
-def init_main_window(db_name):
-    global tables_listbox_old, tables_listbox_new, schema_tree_old, schema_tree_new, root, create_button, constraint_vars
+def browse_file():
+    file_path = filedialog.askopenfilename(filetypes=[("Text files", "*.txt"), ("All files", "*.*")])
+    if file_path:
+        schema_file_entry.delete(0, tk.END)  # Clear previous entry
+        schema_file_entry.insert(0, file_path) # Insert the new path
+
+def init_main_window():
+    global root, tables_listbox_old, tables_listbox_new, schema_tree_old, schema_tree_new
+    global create_button, constraint_vars, db_combobox, schema_file_entry, schema_file_path
+    global db_label, tables_frame, db_select_frame
+    
     root = tk.Tk()
     root.title("Database Schema Viewer")
     center_window(root, 1200, 600)
-
-    ttk.Label(root, text=f"Connected To: {db_name}", font=("Arial", 14, "bold")).grid(row=0, column=0, columnspan=3, pady=10)
-
+    
+    # Database selection frame
+    db_select_frame = ttk.Frame(root, padding=10)
+    db_select_frame.pack(fill=tk.X, padx=10, pady=10)
+    
+    # Horizontal layout for database selection controls
+    db_controls_frame = ttk.Frame(db_select_frame)
+    db_controls_frame.pack(fill=tk.X, expand=True)
+    
+    # First row - Database selection
+    ttk.Label(db_controls_frame, text="Database:").grid(row=0, column=0, sticky="w", padx=5, pady=5)
+    db_combobox = ttk.Combobox(db_controls_frame, width=30)
+    db_combobox.grid(row=0, column=1, sticky="w", padx=5, pady=5)
+    
+    # Populate database combobox
+    populate_db_combobox()
+    
+    # Second row - Schema file selection
+    ttk.Label(db_controls_frame, text="Schema File:").grid(row=0, column=2, sticky="w", padx=5, pady=5)
+    schema_file_entry = ttk.Entry(db_controls_frame, width=30)
+    schema_file_entry.grid(row=0, column=3, sticky="w", padx=5, pady=5)
+    
+    browse_button = ttk.Button(db_controls_frame, text="Browse", command=browse_file)
+    browse_button.grid(row=0, column=4, padx=5, pady=5)
+    
+    connect_button = ttk.Button(db_controls_frame, text="Select Database", command=select_database)
+    connect_button.grid(row=0, column=5, padx=5, pady=5)
+    
+    # Configure row and column weights for the db_controls_frame
+    for i in range(6):
+        db_controls_frame.columnconfigure(i, weight=1)
+    
+    # Database label
+    db_label = ttk.Label(root, text="Not connected to any database", font=("Arial", 12, "bold"))
+    db_label.pack(pady=5)
+    
+    # Main content frame
+    tables_frame = ttk.Frame(root)
+    
     # Left Frame (Old Tables)
-    left_frame = ttk.LabelFrame(root, text="Old Tables", padding=(10, 10))
-    left_frame.grid(row=1, column=0, padx=10, pady=10, sticky="nsew")
+    left_frame = ttk.LabelFrame(tables_frame, text="Old Tables", padding=(10, 10))
+    left_frame.grid(row=0, column=0, padx=10, pady=10, sticky="nsew")
 
     tables_listbox_old = tk.Listbox(left_frame, width=30, height=15)
     tables_listbox_old.grid(row=0, column=0, sticky="nsew")
-    tables_listbox_old.bind("<<ListboxSelect>>", show_schema) #bind here
+    tables_listbox_old.bind("<<ListboxSelect>>", show_schema)
 
     scrollbar_old = ttk.Scrollbar(left_frame, command=tables_listbox_old.yview)
     scrollbar_old.grid(row=0, column=1, sticky="ns")
     tables_listbox_old.config(yscrollcommand=scrollbar_old.set)
 
-    ttk.Label(left_frame, text = "New Tables").grid(row = 2, column = 0) #Add heading.
+    ttk.Label(left_frame, text="New Tables").grid(row=2, column=0)
 
     tables_listbox_new = tk.Listbox(left_frame, width=30, height=15)
     tables_listbox_new.grid(row=3, column=0, sticky="nsew")
-
-    get_tables()
+    
+    scrollbar_new = ttk.Scrollbar(left_frame, command=tables_listbox_new.yview)
+    scrollbar_new.grid(row=3, column=1, sticky="ns")
+    tables_listbox_new.config(yscrollcommand=scrollbar_new.set)
 
     # Middle Frame (Schemas)
-    middle_frame = ttk.Frame(root)
-    middle_frame.grid(row=1, column=1, padx=10, pady=10, sticky="nsew")
+    middle_frame = ttk.Frame(tables_frame)
+    middle_frame.grid(row=0, column=1, padx=10, pady=10, sticky="nsew")
 
-    schema_frame_old = ttk.Frame(middle_frame)
-    schema_frame_old.grid(row=0, column=0, sticky="nsew")
+    schema_frame_old = ttk.LabelFrame(middle_frame, text="Original Schema")
+    schema_frame_old.grid(row=0, column=0, sticky="nsew", pady=5)
 
     columns = ("Field", "Type", "Null", "Key", "Default", "Extra")
-    schema_tree_old = ttk.Treeview(schema_frame_old, columns=columns, show="headings")
+    schema_tree_old = ttk.Treeview(schema_frame_old, columns=columns, show="headings", height=10)
 
     for col in columns:
         schema_tree_old.heading(col, text=col)
         schema_tree_old.column(col, width=120, anchor="center")
 
     schema_tree_old.grid(row=0, column=0, sticky="nsew")
+    
+    tree_scroll_old = ttk.Scrollbar(schema_frame_old, orient="vertical", command=schema_tree_old.yview)
+    tree_scroll_old.grid(row=0, column=1, sticky="ns")
+    schema_tree_old.configure(yscrollcommand=tree_scroll_old.set)
 
     view_data_button = ttk.Button(middle_frame, text="View Data", command=view_data)
-    view_data_button.grid(row=1, column=0, pady=10)
+    view_data_button.grid(row=1, column=0, pady=5)
 
-    schema_frame_new = ttk.Frame(middle_frame)
-    schema_frame_new.grid(row=2, column=0, sticky="nsew")
+    schema_frame_new = ttk.LabelFrame(middle_frame, text="New Schema")
+    schema_frame_new.grid(row=2, column=0, sticky="nsew", pady=5)
 
-    schema_tree_new = ttk.Treeview(schema_frame_new, columns=columns, show="headings")
+    schema_tree_new = ttk.Treeview(schema_frame_new, columns=columns, show="headings", height=10)
 
     for col in columns:
         schema_tree_new.heading(col, text=col)
         schema_tree_new.column(col, width=120, anchor="center")
 
     schema_tree_new.grid(row=0, column=0, sticky="nsew")
+    
+    tree_scroll_new = ttk.Scrollbar(schema_frame_new, orient="vertical", command=schema_tree_new.yview)
+    tree_scroll_new.grid(row=0, column=1, sticky="ns")
+    schema_tree_new.configure(yscrollcommand=tree_scroll_new.set)
 
     # Right Frame (Constraints)
-    right_frame = ttk.LabelFrame(root, text="Constraints", padding=(10, 10))
-    right_frame.grid(row=1, column=2, padx=10, pady=10, sticky="nsew")
+    right_frame = ttk.LabelFrame(tables_frame, text="Constraints", padding=(10, 10))
+    right_frame.grid(row=0, column=2, padx=10, pady=10, sticky="nsew")
 
     constraints = ["Table Name", "Columns", "Primary Key", "Foreign Key", "Unique Values", "Null Values", "Added Column", "Deleted Column"]
     constraint_vars = [tk.BooleanVar() for _ in constraints]
@@ -469,31 +567,34 @@ def init_main_window(db_name):
         ttk.Checkbutton(right_frame, text=constraint, variable=constraint_vars[i], command=check_constraints).grid(row=i, column=0, sticky="w")
 
     # Create button
-    create_button = ttk.Button(root, text="Create New Table", command=create_new_table_and_copy_data, state=tk.DISABLED)
-    create_button.grid(row=2, column=1, pady=10)
+    create_button = ttk.Button(tables_frame, text="Create New Table", command=create_new_table_and_copy_data, state=tk.DISABLED)
+    create_button.grid(row=1, column=1, pady=10)
 
     # Refresh Tables Button
-    refresh_button = ttk.Button(root, text="Refresh Tables", command=get_tables)
-    refresh_button.grid(row=2, column=0, pady=10)
+    refresh_button = ttk.Button(tables_frame, text="Refresh Tables", command=get_tables)
+    refresh_button.grid(row=1, column=0, pady=10)
 
-    root.grid_columnconfigure(1, weight=1)
-    root.grid_rowconfigure(1, weight=1)
+    # Configure grid weights
+    tables_frame.columnconfigure(1, weight=1)
+    tables_frame.rowconfigure(0, weight=1)
+    
+    root.protocol("WM_DELETE_WINDOW", lambda: close_app(root))
     root.mainloop()
-    cursor.close()
-    conn.close()
 
-def browse_file():
-    global schema_file_path
-    file_path = filedialog.askopenfilename(filetypes=[("Text files", "*.txt"), ("All files", "*.*")])
-    if file_path:
-        schema_file_entry.delete(0, tk.END)  # Clear previous entry
-        schema_file_entry.insert(0, file_path) # Insert the new path
-        schema_file_path = file_path
+def close_app(window):
+    try:
+        if 'conn' in globals() and conn.is_connected():
+            cursor.close()
+            conn.close()
+    except:
+        pass
+    finally:
+        window.destroy()
 
 # Login Window
 login_window = tk.Tk()
 login_window.title("Database Login")
-center_window(login_window, 700, 600)
+center_window(login_window, 300, 200)
 
 ttk.Label(login_window, text="MySQL Database Login", font=("Arial", 12, "bold")).pack(pady=10)
 
@@ -505,16 +606,9 @@ ttk.Label(login_window, text="Password:").pack()
 password_entry = ttk.Entry(login_window, show="*")
 password_entry.pack(pady=5)
 
-ttk.Label(login_window, text="Database Name:").pack()
-dbname_entry = ttk.Entry(login_window)
-dbname_entry.pack(pady=5)
-
-ttk.Label(login_window, text="Schema File:").pack()
-schema_file_entry = ttk.Entry(login_window)
-schema_file_entry.pack(pady=5)
-
-browse_button = ttk.Button(login_window, text="Browse", command=browse_file)
-browse_button.pack(pady=5)
-
 ttk.Button(login_window, text="Connect", command=connect_db).pack(pady=10)
+
+# Initialize global schema_file_path
+schema_file_path = ""
+
 login_window.mainloop()
