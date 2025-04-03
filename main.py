@@ -237,7 +237,53 @@ def check_constraints():
     all_checked = all(var.get() for var in constraint_vars)
     create_button.config(state=tk.NORMAL if all_checked else tk.DISABLED)
 
-def view_data():
+def view_data(table_name, columns, data, data_window):
+    """General function to display data and add download options."""
+
+    data_tree = ttk.Treeview(data_window, columns=columns, show="headings")
+    for col in columns:
+        data_tree.heading(col, text=col)
+        data_tree.column(col, width=100)
+    for row in data:
+        data_tree.insert("", tk.END, values=row)
+    data_tree.pack(fill=tk.BOTH, expand=True)
+
+    def download_csv():
+        file_path = filedialog.asksaveasfilename(defaultextension=".csv", filetypes=[("CSV files", "*.csv"), ("All files", "*.*")])
+        if file_path:
+            try:
+                with open(file_path, 'w', newline='', encoding='utf-8') as csvfile:
+                    csv_writer = csv.writer(csvfile)
+                    csv_writer.writerow(columns)
+                    csv_writer.writerows(data)
+                messagebox.showinfo("Download Successful", f"Data downloaded to {file_path}")
+            except Exception as e:
+                messagebox.showerror("Download Error", f"Failed to download data: {e}")
+
+    def download_json():
+        file_path = filedialog.asksaveasfilename(defaultextension=".json", filetypes=[("JSON files", "*.json"), ("All files", "*.*")])
+        if file_path:
+            try:
+                json_data = [dict(zip(columns, row)) for row in data]
+                with open(file_path, 'w', encoding='utf-8') as jsonfile:
+                    json.dump(json_data, jsonfile, indent=4)
+                messagebox.showinfo("Download Successful", f"Data downloaded to {file_path}")
+            except Exception as e:
+                messagebox.showerror("Download Error", f"Failed to download data: {e}")
+
+    download_label = ttk.Label(data_window, text="Download Data:")
+    download_label.pack(pady=(10, 0))
+
+    download_frame = ttk.Frame(data_window)
+    download_frame.pack(pady=5)
+
+    csv_button = ttk.Button(download_frame, text="CSV", command=download_csv)
+    csv_button.pack(side=tk.LEFT, padx=5)
+
+    json_button = ttk.Button(download_frame, text="JSON", command=download_json)
+    json_button.pack(side=tk.LEFT, padx=5)
+
+def view_old_data():
     selected_index = tables_listbox_old.curselection()
     if not selected_index:
         messagebox.showerror("Error", "Please select a table to view data.")
@@ -252,26 +298,30 @@ def view_data():
         columns = [desc[0] for desc in cursor.description]
         data_window = Toplevel(root)
         data_window.title(f"Data from {selected_table}")
-        data_tree = ttk.Treeview(data_window, columns=columns, show="headings")
-        for col in columns:
-            data_tree.heading(col, text=col)
-            data_tree.column(col, width=100)
-        for row in data:
-            data_tree.insert("", tk.END, values=row)
-        data_tree.pack(fill=tk.BOTH, expand=True)
-        def download_data():
-            file_path = filedialog.asksaveasfilename(defaultextension=".csv", filetypes=[("CSV files", "*.csv"), ("All files", "*.*")])
-            if file_path:
-                try:
-                    with open(file_path, 'w', newline='', encoding='utf-8') as csvfile:
-                        csv_writer = csv.writer(csvfile)
-                        csv_writer.writerow(columns)
-                        csv_writer.writerows(data)
-                    messagebox.showinfo("Download Successful", f"Data downloaded to {file_path}")
-                except Exception as e:
-                    messagebox.showerror("Download Error", f"Failed to download data: {e}")
-        download_button = ttk.Button(data_window, text="Download Data", command=download_data)
-        download_button.pack(pady=10)
+        view_data(selected_table, columns, data, data_window)
+
+    except mysql.connector.Error as err:
+        messagebox.showerror("Error", f"Database error: {err}")
+    except Exception as e:
+        print(f"general error in view data: {e}")
+
+def view_new_data():
+    selected_index = tables_listbox_new.curselection()
+    if not selected_index:
+        messagebox.showerror("Error", "Please select a table to view data.")
+        return
+    selected_table = tables_listbox_new.get(selected_index)
+    try:
+        if not conn.is_connected():
+            messagebox.showerror("Error", "Database connection lost.")
+            return
+        cursor.execute(f"SELECT * FROM {selected_table}")
+        data = cursor.fetchall()
+        columns = [desc[0] for desc in cursor.description]
+        data_window = Toplevel(root)
+        data_window.title(f"Data from {selected_table}")
+        view_data(selected_table, columns, data, data_window)
+
     except mysql.connector.Error as err:
         messagebox.showerror("Error", f"Database error: {err}")
     except Exception as e:
@@ -438,8 +488,8 @@ def init_main_window():
     tree_scroll_old = ttk.Scrollbar(schema_frame_old, orient="vertical", command=schema_tree_old.yview)
     tree_scroll_old.grid(row=0, column=1, sticky="ns")
     schema_tree_old.configure(yscrollcommand=tree_scroll_old.set)
-    view_data_button = ttk.Button(middle_frame, text="View Data", command=view_data)
-    view_data_button.grid(row=1, column=0, pady=5)
+    view_old_data_button = ttk.Button(middle_frame, text="View Old Data", command=view_old_data)
+    view_old_data_button.grid(row=1, column=0, pady=5)
     schema_frame_new = ttk.LabelFrame(middle_frame, text="New Schema")
     schema_frame_new.grid(row=2, column=0, sticky="nsew", pady=5)
     schema_tree_new = ttk.Treeview(schema_frame_new, columns=columns, show="headings", height=10)
@@ -450,6 +500,8 @@ def init_main_window():
     tree_scroll_new = ttk.Scrollbar(schema_frame_new, orient="vertical", command=schema_tree_new.yview)
     tree_scroll_new.grid(row=0, column=1, sticky="ns")
     schema_tree_new.configure(yscrollcommand=tree_scroll_new.set)
+    view_new_data_button = ttk.Button(middle_frame, text="View New Data", command=view_new_data)
+    view_new_data_button.grid(row=3, column=0, pady=5)
     right_frame = ttk.LabelFrame(tables_frame, text="Constraints", padding=(10, 10))
     right_frame.grid(row=0, column=2, padx=10, pady=10, sticky="nsew")
     constraints = ["Table Name", "Columns", "Primary Key", "Foreign Key", "Unique Values", "Null Values", "Added Column", "Deleted Column"]
@@ -466,7 +518,7 @@ def init_main_window():
     tables_frame.rowconfigure(0, weight=1)
     root.protocol("WM_DELETE_WINDOW", lambda: close_app(root))
     root.mainloop()
-
+    
 def close_app(window):
     try:
         if 'conn' in globals() and conn.is_connected():
