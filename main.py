@@ -5,6 +5,8 @@ import mysql.connector
 import re
 import json
 import os
+import datetime
+import decimal
 
 MAPPING_FILE = "table_mappings.json"
 
@@ -249,7 +251,13 @@ def view_data(table_name, columns, data, data_window):
     data_tree.pack(fill=tk.BOTH, expand=True)
 
     def download_csv():
-        file_path = filedialog.asksaveasfilename(defaultextension=".csv", filetypes=[("CSV files", "*.csv"), ("All files", "*.*")])
+        file_path = filedialog.asksaveasfilename(
+            title="Save as",
+            initialfile=f"{table_name}_data",
+            defaultextension=".csv",
+            filetypes=[("CSV files", "*.csv"), ("All files", "*.*")]
+        )
+
         if file_path:
             try:
                 with open(file_path, 'w', newline='', encoding='utf-8') as csvfile:
@@ -261,12 +269,28 @@ def view_data(table_name, columns, data, data_window):
                 messagebox.showerror("Download Error", f"Failed to download data: {e}")
 
     def download_json():
-        file_path = filedialog.asksaveasfilename(defaultextension=".json", filetypes=[("JSON files", "*.json"), ("All files", "*.*")])
+        file_path = filedialog.asksaveasfilename(
+            title="Save as",
+            initialfile=f"{table_name}_data",
+            defaultextension=".json",
+            filetypes=[("JSON files", "*.json"), ("All files", "*.*")]
+        )
         if file_path:
             try:
-                json_data = [dict(zip(columns, row)) for row in data]
+                # Convert data rows to list of dicts
+                json_data = []
+                for row in data:
+                    row_dict = {}
+                    for col, val in zip(columns, row):
+                        if isinstance(val, (datetime.date, datetime.datetime)):
+                            row_dict[col] = val.isoformat()  # Convert date/datetime to string
+                        else:
+                            row_dict[col] = val
+                    json_data.append(row_dict)
+
                 with open(file_path, 'w', encoding='utf-8') as jsonfile:
                     json.dump(json_data, jsonfile, indent=4)
+
                 messagebox.showinfo("Download Successful", f"Data downloaded to {file_path}")
             except Exception as e:
                 messagebox.showerror("Download Error", f"Failed to download data: {e}")
