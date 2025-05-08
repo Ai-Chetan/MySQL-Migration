@@ -1914,11 +1914,8 @@ def map_merge_tables():
                      found_join = True
                      print(f"  - Auto-join found: {prev_table}.{prev_pk} = {current_table}.{potential_fk_col}")
 
-                # Add more heuristics here if needed (e.g., check current_table.id vs prev_table.current_table_id)
-
                 if not found_join:
                     print(f"  - Could not automatically determine join between {prev_table} and {current_table}. Add manually.")
-                    # Add a placeholder comment or leave blank? Add comment.
                     generated_joins.append(f"-- Could not auto-determine JOIN for table: {current_table}")
 
 
@@ -2036,10 +2033,8 @@ def map_merge_tables():
                 source_spec = source_spec.strip()
                 target_col = target_col.strip()
                 if '.' not in source_spec: raise ValueError(f"Line {line_num}: Source '{source_spec}' must be 'table.column'")
-                # Basic check if source table is selected
                 src_table_check = source_spec.split('.')[0]
                 if src_table_check not in source_tables: raise ValueError(f"Line {line_num}: Source table '{src_table_check}' not in selected source tables.")
-                # Basic check if target col is in schema (optional but good)
                 target_schema_def = parsed_schema.get(target_table, {})
                 if target_col not in target_schema_def: print(f"Warning: Target column '{target_col}' (Line {line_num}) not found in schema definition for '{target_table}'.")
 
@@ -2057,7 +2052,6 @@ def map_merge_tables():
              if src in table_mappings and table_mappings[src].get("type") != "merge":
                  messagebox.showerror("Conflict", f"Source table '{src}' is already mapped individually or in a split. Remove that mapping first.", parent=merge_win)
                  return
-             # Also check if target conflicts with other mappings (add if needed)
 
         # Check if merge key already exists, prompt to overwrite if necessary
         if merge_key in table_mappings:
@@ -2723,7 +2717,7 @@ def init_main_window():
 
     # Confirmation Gate Frame
     constraint_frame = ttk.LabelFrame(right_frame, text="Manual Confirmation Gate", padding=10); constraint_frame.pack(pady=10, fill=tk.X)
-    constraints = ["Compared Schemas?", "Checked Data Types?", "Verified Mappings?", "Database Backed Up?", "Aware of Potential Loss?", "Proceed with Create?"]
+    constraints = ["Compared Schemas?", "Checked Data Types?", "Verified Mappings?", "Checked default values?", "Database Backed Up?", "Proceed with Create?"]
     constraint_vars = [tk.BooleanVar() for _ in constraints]
     for i, constraint in enumerate(constraints): cb = ttk.Checkbutton(constraint_frame, text=constraint, variable=constraint_vars[i], command=check_constraints); cb.grid(row=i, column=0, sticky="w", pady=1, padx=5)
 
