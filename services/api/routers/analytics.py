@@ -55,28 +55,22 @@ async def get_realtime_performance(
 ):
     """
     Get real-time performance metrics for current tenant.
+    NOTE: Full metrics require Redis/Workers (currently disabled)
     """
     try:
         db = get_metadata_db()
         conn = db.get_connection()
         cursor = conn.cursor()
         
-        # Get active workers count
-        cursor.execute(
-            """
-            SELECT COUNT(DISTINCT worker_id)
-            FROM migration_chunks
-            WHERE status = 'running'
-            AND last_heartbeat > NOW() - INTERVAL '30 seconds'
-            """
-        )
-        active_workers = cursor.fetchone()[0] or 0
+        # Since Redis/workers are disabled, return simplified metrics
+        # Active workers count (would need worker_id column with Redis enabled)
+        active_workers = 0
         
-        # Calculate rows per second (last 5 minutes)
+        # Calculate rows per second from completed chunks
         cursor.execute(
             """
             SELECT 
-                COALESCE(SUM(actual_rows), 0) as total_rows,
+                COALESCE(SUM(rows_processed), 0) as total_rows,
                 EXTRACT(EPOCH FROM (MAX(completed_at) - MIN(started_at))) as duration
             FROM migration_chunks
             WHERE status = 'completed'
@@ -88,14 +82,14 @@ async def get_realtime_performance(
             (str(current_tenant['id']),)
         )
         result = cursor.fetchone()
-        total_rows = result[0] or 0
-        duration = result[1] or 1
+        total_rows = result['total_rows'] if result else 0
+        duration = result['duration'] if result and result['duration'] else 1
         rows_per_second = total_rows / max(duration, 1)
         
         # Calculate chunks per minute (last 5 minutes)
         cursor.execute(
             """
-            SELECT COUNT(*)
+            SELECT COUNT(*) as count
             FROM migration_chunks
             WHERE status = 'completed'
             AND completed_at > NOW() - INTERVAL '5 minutes'
@@ -105,13 +99,15 @@ async def get_realtime_performance(
             """,
             (str(current_tenant['id']),)
         )
-        completed_chunks = cursor.fetchone()[0] or 0
+        completed_result = cursor.fetchone()
+        completed_chunks = completed_result['count'] if completed_result else 0
         chunks_per_minute = (completed_chunks / 5.0) if completed_chunks > 0 else 0
         
-        # Get queue length (Redis)
-        from services.api.config import get_redis_client
-        redis_client = get_redis_client()
-        queue_length = redis_client.llen("migration_queue")
+        # Get queue length (Redis - DISABLED, TO BE ADDED LATER)
+        # from services.api.config import get_redis_client
+        # redis_client = get_redis_client()
+        # queue_length = redis_client.llen("migration_queue")
+        queue_length = 0  # Redis disabled
         
         db.return_connection(conn)
         
@@ -201,51 +197,12 @@ async def get_active_workers(
 ):
     """
     Get status of all active workers for current tenant.
+    NOTE: Requires Redis/Workers (currently disabled) - returns empty list
     """
     try:
-        db = get_metadata_db()
-        conn = db.get_connection()
-        cursor = conn.cursor()
-        
-        cursor.execute(
-            """
-            SELECT 
-                c.worker_id,
-                c.status,
-                COALESCE(t.table_name || ' chunk #' || c.chunk_number::text, 'N/A') as current_chunk,
-                c.last_heartbeat,
-                (
-                    SELECT COUNT(*)
-                    FROM migration_chunks c2
-                    WHERE c2.worker_id = c.worker_id
-                    AND c2.status = 'completed'
-                ) as chunks_completed
-            FROM migration_chunks c
-            LEFT JOIN migration_tables t ON c.table_id = t.id
-            WHERE c.status = 'running'
-            AND c.last_heartbeat > NOW() - INTERVAL '30 seconds'
-            AND c.job_id IN (
-                SELECT id FROM migration_jobs WHERE tenant_id = %s
-            )
-            GROUP BY c.worker_id, c.status, t.table_name, c.chunk_number, c.last_heartbeat
-            ORDER BY c.last_heartbeat DESC
-            """,
-            (str(current_tenant['id']),)
-        )
-        
-        workers = cursor.fetchall()
-        db.return_connection(conn)
-        
-        return [
-            WorkerStatus(
-                worker_id=w[0],
-                status=w[1],
-                current_chunk=w[2],
-                last_heartbeat=w[3],
-                chunks_completed=w[4]
-            )
-            for w in workers
-        ]
+        # Since Redis/workers are disabled, return empty list
+        # When Redis is enabled, the worker_id column will be available
+        return []
         
     except Exception as e:
         logger.error(f"Failed to get worker status: {e}")
@@ -281,7 +238,7 @@ async def get_usage_stats(
                 COUNT(DISTINCT j.id) as total_migrations,
                 COALESCE(SUM(j.completed_chunks), 0) as total_chunks,
                 COALESCE(SUM(
-                    (SELECT SUM(actual_rows) 
+                    (SELECT SUM(rows_processed) 
                      FROM migration_chunks 
                      WHERE job_id = j.id AND status = 'completed')
                 ), 0) as total_rows
@@ -295,9 +252,9 @@ async def get_usage_stats(
         result = cursor.fetchone()
         db.return_connection(conn)
         
-        total_migrations = result[0] or 0
-        total_chunks = result[1] or 0
-        total_rows = result[2] or 0
+        total_migrations = result['total_migrations'] or 0
+        total_chunks = result['total_chunks'] or 0
+        total_rows = result['total_rows'] or 0
         
         # Calculate average throughput
         duration_hours = (datetime.utcnow() - start_time).total_seconds() / 3600

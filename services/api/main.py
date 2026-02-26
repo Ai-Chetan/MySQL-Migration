@@ -1,6 +1,12 @@
 """
 FastAPI application for Migration Platform Control Plane.
 """
+from dotenv import load_dotenv
+import os
+
+# Load environment variables from .env file
+load_dotenv()
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
@@ -171,27 +177,28 @@ async def get_metrics():
             """
         )
         throughput_result = cursor.fetchone()
-        avg_throughput = throughput_result[0] if throughput_result[0] else None
+        avg_throughput = throughput_result['avg_throughput'] if throughput_result and throughput_result.get('avg_throughput') else None
         
         # Active workers (from heartbeats)
         cursor.execute(
             """
-            SELECT COUNT(*) 
+            SELECT COUNT(*) as count
             FROM worker_heartbeats
             WHERE last_seen > NOW() - INTERVAL '2 minutes'
             """
         )
-        active_workers = cursor.fetchone()[0]
+        active_workers_result = cursor.fetchone()
+        active_workers = active_workers_result['count'] if active_workers_result else 0
         
         metadata_db.return_connection(conn)
         
         return MetricsResponse(
-            total_jobs=job_stats[0] or 0,
-            active_jobs=job_stats[1] or 0,
-            completed_jobs=job_stats[2] or 0,
-            failed_jobs=job_stats[3] or 0,
-            total_chunks_processed=chunk_stats[0] or 0,
-            total_rows_migrated=int(chunk_stats[1] or 0),
+            total_jobs=job_stats['total_jobs'] or 0,
+            active_jobs=job_stats['active_jobs'] or 0,
+            completed_jobs=job_stats['completed_jobs'] or 0,
+            failed_jobs=job_stats['failed_jobs'] or 0,
+            total_chunks_processed=chunk_stats['completed_chunks'] or 0,
+            total_rows_migrated=int(chunk_stats['total_rows'] or 0),
             average_throughput=round(float(avg_throughput), 2) if avg_throughput else None,
             active_workers=active_workers
         )

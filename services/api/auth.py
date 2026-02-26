@@ -173,7 +173,7 @@ class TenantRepository:
         cursor = conn.cursor()
         
         cursor.execute(
-            "SELECT id, email, role, created_at, last_login FROM users WHERE tenant_id = %s",
+            "SELECT id, email, role, tenant_id, created_at, last_login FROM users WHERE tenant_id = %s",
             (str(tenant_id),)
         )
         
