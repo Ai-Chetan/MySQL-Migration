@@ -1,0 +1,27 @@
+# Migration Platform - Phase 1 Requirements
+
+# Core Dependencies
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+pydantic==2.5.0
+pydantic[email]==2.5.0
+python-multipart==0.0.6
+
+# Database Drivers
+psycopg2-binary==2.9.9
+mysql-connector-python==8.2.0
+
+# Queue
+redis==5.0.1
+
+# Authentication
+pyjwt==2.8.0
+passlib[bcrypt]==1.7.4
+python-jose[cryptography]==3.3.0
+
+# Utilities
+python-dotenv==1.0.0
+
+# Optional (for development)
+pytest==7.4.3
+httpx==0.25.2

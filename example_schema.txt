@@ -1,0 +1,62 @@
+# Example Schema File for Schema Migration Tool
+# Format: Table: table_name followed by column definitions
+
+Table: users
+id INT PRIMARY KEY AUTO_INCREMENT
+username VARCHAR(100) NOT NULL
+email VARCHAR(255) NOT NULL
+password_hash VARCHAR(255) NOT NULL
+first_name VARCHAR(100)
+last_name VARCHAR(100)
+created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+is_active BOOLEAN DEFAULT TRUE
+INDEX idx_username (username)
+INDEX idx_email (email)
+
+Table: posts
+id INT PRIMARY KEY AUTO_INCREMENT
+user_id INT NOT NULL
+title VARCHAR(200) NOT NULL
+content TEXT
+status VARCHAR(20) DEFAULT 'draft'
+created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+published_at DATETIME
+view_count INT DEFAULT 0
+FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+INDEX idx_user_id (user_id)
+INDEX idx_status (status)
+INDEX idx_published_at (published_at)
+
+Table: comments
+id INT PRIMARY KEY AUTO_INCREMENT
+post_id INT NOT NULL
+user_id INT NOT NULL
+content TEXT NOT NULL
+created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+is_approved BOOLEAN DEFAULT FALSE
+FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE
+FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+INDEX idx_post_id (post_id)
+INDEX idx_user_id (user_id)
+
+Table: categories
+id INT PRIMARY KEY AUTO_INCREMENT
+name VARCHAR(100) NOT NULL
+slug VARCHAR(100) NOT NULL
+description TEXT
+parent_id INT
+created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+FOREIGN KEY (parent_id) REFERENCES categories(id) ON DELETE SET NULL
+INDEX idx_slug (slug)
+INDEX idx_parent_id (parent_id)
+
+Table: post_categories
+post_id INT NOT NULL
+category_id INT NOT NULL
+created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+PRIMARY KEY (post_id, category_id)
+FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE
+FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE CASCADE

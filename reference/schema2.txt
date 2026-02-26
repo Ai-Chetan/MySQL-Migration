@@ -1,0 +1,59 @@
+Table: student_personal
+StudentID        INT          PRIMARY KEY AUTO_INCREMENT  
+FirstName        VARCHAR(50)  NOT NULL  
+LastName         VARCHAR(50)  NOT NULL  
+DateOfBirth      DATE         NOT NULL  
+Gender           ENUM('Male','Female','Other') NOT NULL  
+BloodGroup       VARCHAR(5)  
+Category         VARCHAR(50)  
+AadharNumber     VARCHAR(15)  UNIQUE  
+ProfilePhoto     VARCHAR(255)
+PhoneNumber      VARCHAR(15)  UNIQUE NOT NULL  
+Email            VARCHAR(100) UNIQUE NOT NULL  
+Address          VARCHAR(255)  
+City             VARCHAR(50)  
+State            VARCHAR(50)  
+PostalCode       VARCHAR(10)  
+Country          VARCHAR(50)
+StudentID        INT          PRIMARY KEY  
+EnrollmentDate   DATE         NOT NULL  
+Course           VARCHAR(100)  
+GPA              DECIMAL(4,2) CHECK (GPA BETWEEN 0.00 AND 10.00)  
+
+Table: student_family
+StudentID        INT          PRIMARY KEY  
+FatherName       VARCHAR(100)  
+FatherPhone      VARCHAR(15)  
+
+Table: faculty
+FacultyID        INT            PRIMARY KEY AUTO_INCREMENT  
+FirstName        VARCHAR(50)    NOT NULL  
+LastName         VARCHAR(50)    NOT NULL  
+Email            VARCHAR(100)   UNIQUE NOT NULL  
+PhoneNumber      VARCHAR(15)    UNIQUE NOT NULL  
+DateOfBirth      DATE           NOT NULL  
+Gender           ENUM('Male', 'Female', 'Other') NOT NULL  
+Qualification    VARCHAR(100)  
+Department       VARCHAR(100)  
+Designation      VARCHAR(100)  
+DateOfJoining    DATE           NOT NULL  
+Address          VARCHAR(255)  
+City             VARCHAR(50)  
+State            VARCHAR(50)  
+PostalCode       VARCHAR(10)  
+Country          VARCHAR(50)  
+AadharNumber     VARCHAR(15)    UNIQUE  
+BloodGroup       VARCHAR(5)  
+ProfilePhoto     VARCHAR(255)
+
+Table: library_full
+RecordID INT PRIMARY KEY AUTO_INCREMENT
+BookID INT
+Title VARCHAR(255) NOT NULL
+Author VARCHAR(100) NOT NULL
+ISBN VARCHAR(20) UNIQUE NOT NULL
+Publisher VARCHAR(100)
+YearPublished YEAR
+StudentID INT
+BorrowDate DATE NOT NULL
+ReturnDate DATE

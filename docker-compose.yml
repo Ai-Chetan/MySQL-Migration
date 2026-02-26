@@ -1,0 +1,178 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Metadata Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: migration_metadata_db
+    environment:
+      POSTGRES_DB: migration_metadata
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./schema.sql:/docker-entrypoint-initdb.d/schema.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - migration_network
+
+  # Redis Queue (COMMENTED OUT - TO BE ADDED LATER)
+  # redis:
+  #   image: redis:7-alpine
+  #   container_name: migration_redis
+  #   command: redis-server --appendonly yes
+  #   ports:
+  #     - "6379:6379"
+  #   volumes:
+  #     - redis_data:/data
+  #   healthcheck:
+  #     test: ["CMD", "redis-cli", "ping"]
+  #     interval: 10s
+  #     timeout: 3s
+  #     retries: 5
+  #   networks:
+  #     - migration_network
+
+  # API Service (Control Plane)
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    container_name: migration_api
+    environment:
+      # Metadata DB
+      METADATA_DB_HOST: postgres
+      METADATA_DB_PORT: 5432
+      METADATA_DB_NAME: migration_metadata
+      METADATA_DB_USER: postgres
+      METADATA_DB_PASSWORD: postgres
+      
+      # Redis (COMMENTED OUT - TO BE ADDED LATER)
+      # REDIS_HOST: redis
+      # REDIS_PORT: 6379
+      # REDIS_DB: 0
+      
+      # API Config
+      API_HOST: 0.0.0.0
+      API_PORT: 8000
+      LOG_LEVEL: INFO
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      # redis:  # COMMENTED OUT - TO BE ADDED LATER
+      #   condition: service_healthy
+    volumes:
+      - ./services:/app/services
+      - ./shared:/app/shared
+      - ./schema.sql:/app/schema.sql
+    networks:
+      - migration_network
+    restart: unless-stopped
+
+  # UI Service (Web Interface)
+  ui:
+    build:
+      context: .
+      dockerfile: Dockerfile.ui
+    container_name: migration_ui
+    ports:
+      - "3000:80"
+    depends_on:
+      - api
+    networks:
+      - migration_network
+    restart: unless-stopped
+
+  # Worker Service (Execution Engine)
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
+    environment:
+      # Metadata DB
+      METADATA_DB_HOST: postgres
+      METADATA_DB_PORT: 5432
+      METADATA_DB_NAME: migration_metadata
+      METADATA_DB_USER: postgres
+      METADATA_DB_PASSWORD: postgres
+      
+      # Redis (COMMENTED OUT - TO BE ADDED LATER)
+      # REDIS_HOST: redis
+      # REDIS_PORT: 6379
+      # REDIS_DB: 0
+      # REDIS_QUEUE_NAME: migration_queue
+      
+      # Worker Config
+      BATCH_SIZE: 1000
+      MAX_RETRIES: 3
+      HEARTBEAT_INTERVAL: 5
+      LOG_LEVEL: INFO
+    depends_on:
+      postgres:
+        condition: service_healthy
+      # redis:  # COMMENTED OUT - TO BE ADDED LATER
+      #   condition: service_healthy
+      api:
+        condition: service_started
+    volumes:
+      - ./services:/app/services
+      - ./shared:/app/shared
+    networks:
+      - migration_network
+    restart: unless-stopped
+
+  # Optional: Source MySQL (for local testing)
+  source_mysql:
+    image: mysql:8.0
+    container_name: migration_source_db
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: source_db
+      MYSQL_USER: miguser
+      MYSQL_PASSWORD: migpassword
+    ports:
+      - "3306:3306"
+    volumes:
+      - source_mysql_data:/var/lib/mysql
+    networks:
+      - migration_network
+    command: --default-authentication-plugin=mysql_native_password
+
+  # Optional: Target MySQL (for local testing)
+  target_mysql:
+    image: mysql:8.0
+    container_name: migration_target_db
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: target_db
+      MYSQL_USER: miguser
+      MYSQL_PASSWORD: migpassword
+    ports:
+      - "3307:3306"
+    volumes:
+      - target_mysql_data:/var/lib/mysql
+    networks:
+      - migration_network
+    command: --default-authentication-plugin=mysql_native_password
+
+volumes:
+  postgres_data:
+    driver: local
+  # redis_data:  # COMMENTED OUT - TO BE ADDED LATER
+  #   driver: local
+  source_mysql_data:
+    driver: local
+  target_mysql_data:
+    driver: local
+
+networks:
+  migration_network:
+    driver: bridge

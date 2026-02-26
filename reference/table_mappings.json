@@ -1,0 +1,114 @@
+{
+    "student": {
+        "type": "single",
+        "new_table_name_schema": "student",
+        "column_mappings": {
+            "StudentID": "StudentID",
+            "FirstName": "FirstName",
+            "LastName": "LastName",
+            "Email": "Email",
+            "PhoneNumber": "PhoneNumber",
+            "DateOfBirth": "DateOfBirth",
+            "Gender": "Gender",
+            "Address": "Address",
+            "City": "City",
+            "State": "State",
+            "PostalCode": "PostalCode",
+            "Country": "Country",
+            "EnrollmentDate": "EnrollmentDate",
+            "Course": "Course",
+            "GPA": "GPA"
+        }
+    },
+    "faculty_advisors": {
+        "type": "split",
+        "new_tables": [
+            {
+                "schema_name": "faculty",
+                "column_mappings": {
+                    "AdvisorID": "AdvisorID",
+                    "StudentID": "StudentID",
+                    "FacultyName": "FacultyName",
+                    "Department": "Department"
+                }
+            },
+            {
+                "schema_name": "library",
+                "column_mappings": {
+                    "StudentID": "StudentID"
+                }
+            }
+        ]
+    },
+    "library_records": {
+        "type": "single",
+        "new_table_name_schema": "library",
+        "column_mappings": {
+            "RecordID": "RecordID",
+            "StudentID": "StudentID",
+            "BookTitle": "BookTitle",
+            "ReturnDate": "ReturnDate",
+            "BorrowDate": "IssueDate"
+        }
+    },
+    "studentinfo": {
+        "type": "single",
+        "new_table_name_schema": "student_information",
+        "column_mappings": {
+            "father_name": "father_name",
+            "mother_name": "mother_name",
+            "aadhar_no": "aadhar",
+            "mother_mobile": "mother_phone",
+            "student_email": "email",
+            "accnt_no": "bank_account_no",
+            "weight": "weight",
+            "admission_category_id": "admission_number"
+        }
+    },
+    "faculty": {
+        "type": "single",
+        "new_table_name_schema": "faculty",
+        "column_mappings": {
+            "FacultyID": "FacultyID",
+            "FirstName": "FirstName",
+            "LastName": "LastName",
+            "Email": "Email",
+            "PhoneNumber": "PhoneNumber",
+            "DateOfBirth": "DateOfBirth",
+            "Gender": "Gender",
+            "Qualification": "Qualification",
+            "Department": "Department",
+            "Designation": "Designation",
+            "DateOfJoining": "DateOfJoining",
+            "Address": "Address",
+            "City": "City",
+            "State": "State",
+            "PostalCode": "PostalCode",
+            "Country": "Country",
+            "AadharNumber": "AadharNumber",
+            "BloodGroup": "BloodGroup",
+            "ProfilePhoto": "ProfilePhoto"
+        }
+    },
+    "MERGE: book_borrow_records, library_books -> library_full": {
+        "type": "merge",
+        "source_tables": [
+            "book_borrow_records",
+            "library_books"
+        ],
+        "new_table_name_schema": "library_full",
+        "join_conditions": "-- REVIEW & ADD JOIN: INNER JOIN `library_books` ON `book_borrow_records`.COLUMN = `library_books`.COLUMN",
+        "column_mappings": {
+            "book_borrow_records.RecordID": "RecordID",
+            "library_books.BookID": "BookID",
+            "library_books.Title": "Title",
+            "library_books.Author": "Author",
+            "library_books.ISBN": "ISBN",
+            "library_books.Publisher": "Publisher",
+            "library_books.YearPublished": "YearPublished",
+            "book_borrow_records.StudentID": "StudentID",
+            "book_borrow_records.BorrowDate": "BorrowDate",
+            "book_borrow_records.ReturnDate": "ReturnDate"
+        }
+    }
+}
