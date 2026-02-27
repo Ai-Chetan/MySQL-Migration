@@ -1,1 +1,6 @@
 schema.txt
+backup
+__pycache__
+core/__pycache__ 
+models/__pycache__
+ui/__pycache__

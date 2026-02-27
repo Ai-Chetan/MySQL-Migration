@@ -1,0 +1,7 @@
+# Core runtime dependencies
+mysql-connector-python>=8.0.0
+python-dotenv>=1.0.0
+
+# Testing (optional)
+pytest>=7.0.0
+pytest-mock>=3.0.0
