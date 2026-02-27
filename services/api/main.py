@@ -1,5 +1,6 @@
 """
 FastAPI application for Migration Platform Control Plane.
+Production-Safe Database Migration Platform
 """
 from dotenv import load_dotenv
 import os
@@ -12,8 +13,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from datetime import datetime
 
-from services.api.routers import migrations, auth, analytics, schema_migration
+from services.api.routers import migrations, auth, analytics, schema_migration, monitoring
 from services.api.metadata import get_metadata_db
+from services.api.recovery_service import get_recovery_service
 # from services.api.config import get_redis_client, close_redis_client  # COMMENTED OUT - Redis will be added later
 from services.api.schemas import HealthResponse, MetricsResponse
 from shared.utils import setup_logger
@@ -37,6 +39,11 @@ async def lifespan(app: FastAPI):
         metadata_db.initialize_schema("schema.sql")
         logger.info("Metadata database initialized")
         
+        # Start stale chunk recovery service
+        recovery_service = get_recovery_service()
+        recovery_service.start()
+        logger.info("Stale chunk recovery service started")
+        
         # Test Redis connection (COMMENTED OUT - TO BE ADDED LATER)
         # redis_client = get_redis_client()
         # redis_client.ping()
@@ -52,12 +59,16 @@ async def lifespan(app: FastAPI):
     logger.info("Shutting down Migration Platform API...")
     
     try:
+        # Stop recovery service
+        recovery_service = get_recovery_service()
+        await recovery_service.stop()
+        logger.info("Recovery service stopped")
+        
         metadata_db = get_metadata_db()
         metadata_db.close()
         
         # Close Redis connection (COMMENTED OUT - TO BE ADDED LATER)
         # close_redis_client()
-        close_redis_client()
         logger.info("Connections closed successfully")
     except Exception as e:
         logger.error(f"Error during shutdown: {e}")
@@ -66,8 +77,8 @@ async def lifespan(app: FastAPI):
 # Create FastAPI application
 app = FastAPI(
     title="Migration Platform API",
-    description="Control Plane for Database Migration Platform",
-    version="1.0.0 (Phase 1)",
+    description="Production-Safe Database Migration Platform with Crash Recovery",
+    version="2.0.0",
     lifespan=lifespan
 )
 
@@ -85,6 +96,7 @@ app.include_router(auth.router)
 app.include_router(migrations.router)
 app.include_router(analytics.router)
 app.include_router(schema_migration.router)
+app.include_router(monitoring.router)  # Production monitoring endpoints
 
 
 @app.get("/", tags=["root"])
