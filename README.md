@@ -368,6 +368,58 @@ GET    /api/analytics/workers/active        # Worker status
 GET    /api/analytics/usage                 # Usage statistics
 ```
 
+### Performance Metrics
+```http
+GET    /api/performance/realtime/{job_id}           # Real-time throughput & ETA
+GET    /api/performance/history/{job_id}            # Time-series metrics
+GET    /api/performance/workers/{job_id}            # Per-worker statistics
+GET    /api/performance/batch-size-history/{job_id} # Adaptive sizing history
+GET    /api/performance/constraints/{job_id}        # Constraint management status
+```
+
+---
+
+## ⚡ Performance Optimization
+
+### High-Performance Executor
+Designed for 5TB+ scale migrations with minimal memory footprint.
+
+**Streaming Reads**:
+- Server-side cursors for constant memory usage
+- No full table loading into memory
+- Process millions of rows with <100MB RAM
+
+**Bulk Insert Strategies**:
+- **PostgreSQL**: `COPY FROM STDIN` (10-50x faster than row-by-row)
+- **MySQL**: Multi-value `INSERT` statements (up to 1000 rows per query)
+- Automatic method selection based on target database type
+
+**Adaptive Batch Sizing**:
+- Dynamic adjustment based on insert latency
+- Formula: `new_size = current_size × (target_latency / actual_latency)`
+- Bounds: 1,000 - 50,000 rows per batch
+- Smooth adjustments (max 20% change per iteration)
+- Adjusts every 5 batches based on rolling window
+
+**Constraint Management**:
+- Drop secondary indexes before bulk insert
+- Store constraint definitions in `table_constraints_backup`
+- Rebuild indexes `CONCURRENTLY` after migration
+- Handle foreign key dependencies with topological sorting
+
+**Performance Metrics**:
+- Real-time throughput (rows/sec, MB/sec)
+- Memory tracking with `psutil`
+- Insert latency monitoring
+- Per-worker statistics
+- Time-series data for visualization
+
+**Monitoring Tables**:
+- `performance_metrics`: Time-series throughput data
+- `table_constraints_backup`: Dropped/restored constraints
+- `batch_size_history`: Adaptive sizing audit trail
+- `realtime_performance` view: Live metrics with ETA calculation
+
 ---
 
 ## 🎨 UI Pages
@@ -1018,8 +1070,9 @@ cat backup.sql | docker exec -i migration-postgres psql -U migration_user migrat
 ### ✅ Implemented Features
 - **Core Migration Engine**: Chunk-based processing, worker pool with Redis queue, metadata tracking, resumability & retry logic
 - **Production Safety**: Crash recovery, exponential backoff, idempotency, row count validation, transaction safety
+- **Performance Optimization**: Streaming reads (server-side cursors), bulk insert strategies (COPY/LOAD DATA), adaptive batch sizing, constraint management, memory tracking, throughput metrics
 - **Operational UI**: Job creation & management, real-time status monitoring, retry controls, table-level views
-- **Performance Monitoring**: Real-time throughput charts, worker status dashboard, queue visualization, historical metrics
+- **Performance Monitoring**: Real-time throughput charts, worker status dashboard, queue visualization, historical metrics, per-worker statistics, batch size history
 - **SaaS Features**: JWT authentication, multi-tenancy with isolation, team management, role-based access
 - **Enterprise Analytics**: Usage tracking, activity reports, advanced dashboards, tenant-level analytics
 - **Advanced Monitoring**: Job summaries with ETA, table-level progress, chunk filtering, execution audit logs, system health checks

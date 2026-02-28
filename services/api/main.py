@@ -13,7 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from datetime import datetime
 
-from services.api.routers import migrations, auth, analytics, schema_migration, monitoring
+from services.api.routers import migrations, auth, analytics, schema_migration, monitoring, performance
 from services.api.metadata import get_metadata_db
 from services.api.recovery_service import get_recovery_service
 # from services.api.config import get_redis_client, close_redis_client  # COMMENTED OUT - Redis will be added later
@@ -97,6 +97,7 @@ app.include_router(migrations.router)
 app.include_router(analytics.router)
 app.include_router(schema_migration.router)
 app.include_router(monitoring.router)  # Production monitoring endpoints
+app.include_router(performance.router)  # Performance metrics endpoints
 
 
 @app.get("/", tags=["root"])
