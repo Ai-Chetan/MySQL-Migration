@@ -100,6 +100,35 @@ class ApiClient {
     return response.data;
   }
 
+  // Performance Metrics
+  async getPerformanceRealtime(jobId) {
+    const response = await this.client.get(`/performance/realtime/${jobId}`);
+    return response.data;
+  }
+
+  async getPerformanceHistory(jobId, hours = 1) {
+    const response = await this.client.get(`/performance/history/${jobId}?hours=${hours}`);
+    return response.data;
+  }
+
+  async getWorkerStats(jobId) {
+    const response = await this.client.get(`/performance/workers/${jobId}`);
+    return response.data;
+  }
+
+  async getBatchSizeHistory(jobId, tableName = null) {
+    const url = tableName 
+      ? `/performance/batch-size-history/${jobId}?table_name=${tableName}`
+      : `/performance/batch-size-history/${jobId}`;
+    const response = await this.client.get(url);
+    return response.data;
+  }
+
+  async getConstraintStatus(jobId) {
+    const response = await this.client.get(`/performance/constraints/${jobId}`);
+    return response.data;
+  }
+
   // Jobs
   async createJob(request) {
     const response = await this.client.post('/migrations', request);

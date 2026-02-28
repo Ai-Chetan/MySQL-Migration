@@ -13,7 +13,8 @@ import {
   Play,
   TrendingUp,
   Activity,
-  ChevronRight
+  ChevronRight,
+  BarChart3
 } from 'lucide-react';
 import { formatDistanceToNow, format } from 'date-fns';
 
@@ -145,25 +146,35 @@ export default function JobDetail() {
             <p className="text-neutral-600 font-mono text-sm">ID: {job.id}</p>
           </div>
 
-          {(job.status === JobStatus.FAILED || job.status === JobStatus.PAUSED) && (
-            <button
-              onClick={handleResume}
-              disabled={resuming}
-              className="btn-accent inline-flex items-center space-x-2"
+          <div className="flex items-center space-x-3">
+            <Link
+              to={`/jobs/${jobId}/performance`}
+              className="btn-secondary inline-flex items-center space-x-2"
             >
-              {resuming ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>Resuming...</span>
-                </>
-              ) : (
-                <>
-                  <Play className="w-4 h-4" />
-                  <span>Resume Job</span>
-                </>
-              )}
-            </button>
-          )}
+              <BarChart3 className="w-4 h-4" />
+              <span>Performance Metrics</span>
+            </Link>
+
+            {(job.status === JobStatus.FAILED || job.status === JobStatus.PAUSED) && (
+              <button
+                onClick={handleResume}
+                disabled={resuming}
+                className="btn-accent inline-flex items-center space-x-2"
+              >
+                {resuming ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Resuming...</span>
+                  </>
+                ) : (
+                  <>
+                    <Play className="w-4 h-4" />
+                    <span>Resume Job</span>
+                  </>
+                )}
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Progress Bar */}

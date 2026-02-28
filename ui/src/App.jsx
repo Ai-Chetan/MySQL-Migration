@@ -9,6 +9,7 @@ import CreateJob from './pages/CreateJob.jsx';
 import JobDetail from './pages/JobDetail.jsx';
 import TableDetail from './pages/TableDetail.jsx';
 import PerformanceDashboard from './pages/PerformanceDashboard.jsx';
+import PerformanceMetricsPage from './pages/PerformanceMetricsPage.jsx';
 import TeamManagement from './pages/TeamManagement.jsx';
 import BillingPage from './pages/BillingPage.jsx';
 import DatabaseConnectionsPage from './pages/DatabaseConnectionsPage.jsx';
@@ -29,6 +30,7 @@ function App() {
             <Route index element={<Dashboard />} />
             <Route path="jobs/new" element={<CreateJob />} />
             <Route path="jobs/:jobId" element={<JobDetail />} />
+            <Route path="jobs/:jobId/performance" element={<PerformanceMetricsPage />} />
             <Route path="jobs/:jobId/tables/:tableId" element={<TableDetail />} />
             <Route path="performance" element={<PerformanceDashboard />} />
             <Route path="team" element={<TeamManagement />} />
