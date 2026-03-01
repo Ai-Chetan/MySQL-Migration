@@ -129,6 +129,71 @@ class ApiClient {
     return response.data;
   }
 
+  // Billing & Usage
+  async getPlans() {
+    const response = await this.client.get('/billing/plans');
+    return response.data;
+  }
+
+  async getCurrentUsage() {
+    const response = await this.client.get('/billing/usage/current');
+    return response.data;
+  }
+
+  async getUsageHistory(days = 30) {
+    const response = await this.client.get(`/billing/usage/history?days=${days}`);
+    return response.data;
+  }
+
+  async getInvoices(limit = 10) {
+    const response = await this.client.get(`/billing/invoices?limit=${limit}`);
+    return response.data;
+  }
+
+  async getCurrentPlan() {
+    const response = await this.client.get('/billing/plan/current');
+    return response.data;
+  }
+
+  async upgradePlan(planId) {
+    const response = await this.client.post('/billing/plan/upgrade', { plan_id: planId });
+    return response.data;
+  }
+
+  async checkQuota(action = 'job_creation') {
+    const response = await this.client.get(`/billing/quota/check?action=${action}`);
+    return response.data;
+  }
+
+  // Audit Logs
+  async getAuditLogs(filters = {}) {
+    const params = new URLSearchParams();
+    if (filters.action) params.append('action', filters.action);
+    if (filters.user_id) params.append('user_id', filters.user_id);
+    if (filters.resource_type) params.append('resource_type', filters.resource_type);
+    if (filters.status) params.append('status', filters.status);
+    if (filters.days) params.append('days', filters.days);
+    if (filters.limit) params.append('limit', filters.limit);
+    
+    const response = await this.client.get(`/audit/logs?${params.toString()}`);
+    return response.data;
+  }
+
+  async getAuditSummary(days = 30) {
+    const response = await this.client.get(`/audit/summary?days=${days}`);
+    return response.data;
+  }
+
+  async getAuditActionTypes() {
+    const response = await this.client.get('/audit/actions');
+    return response.data;
+  }
+
+  async getUserActivity(userId, days = 30) {
+    const response = await this.client.get(`/audit/user-activity/${userId}?days=${days}`);
+    return response.data;
+  }
+
   // Jobs
   async createJob(request) {
     const response = await this.client.post('/migrations', request);

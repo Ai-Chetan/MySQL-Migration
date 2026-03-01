@@ -12,6 +12,7 @@ import PerformanceDashboard from './pages/PerformanceDashboard.jsx';
 import PerformanceMetricsPage from './pages/PerformanceMetricsPage.jsx';
 import TeamManagement from './pages/TeamManagement.jsx';
 import BillingPage from './pages/BillingPage.jsx';
+import AuditLogViewer from './pages/AuditLogViewer.jsx';
 import DatabaseConnectionsPage from './pages/DatabaseConnectionsPage.jsx';
 import SchemaMigrationPage from './pages/SchemaMigrationPage.jsx';
 import DataViewerPage from './pages/DataViewerPage.jsx';
@@ -35,6 +36,7 @@ function App() {
             <Route path="performance" element={<PerformanceDashboard />} />
             <Route path="team" element={<TeamManagement />} />
             <Route path="billing" element={<BillingPage />} />
+            <Route path="audit" element={<AuditLogViewer />} />
             <Route path="schema/connections" element={<DatabaseConnectionsPage />} />
             <Route path="schema/migration" element={<SchemaMigrationPage />} />
             <Route path="schema/data-viewer" element={<DataViewerPage />} />

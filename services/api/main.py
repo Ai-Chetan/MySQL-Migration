@@ -13,9 +13,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from datetime import datetime
 
-from services.api.routers import migrations, auth, analytics, schema_migration, monitoring, performance
+from services.api.routers import migrations, auth, analytics, schema_migration, monitoring, performance, billing, audit
 from services.api.metadata import get_metadata_db
 from services.api.recovery_service import get_recovery_service
+from services.api.rate_limiter import RateLimitMiddleware
 # from services.api.config import get_redis_client, close_redis_client  # COMMENTED OUT - Redis will be added later
 from services.api.schemas import HealthResponse, MetricsResponse
 from shared.utils import setup_logger
@@ -77,8 +78,8 @@ async def lifespan(app: FastAPI):
 # Create FastAPI application
 app = FastAPI(
     title="Migration Platform API",
-    description="Production-Safe Database Migration Platform with Crash Recovery",
-    version="2.0.0",
+    description="Multi-Tenant SaaS Database Migration Platform",
+    version="4.0.0",
     lifespan=lifespan
 )
 
@@ -91,6 +92,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Add rate limiting middleware
+app.add_middleware(RateLimitMiddleware)
+
 # Include routers
 app.include_router(auth.router)
 app.include_router(migrations.router)
@@ -98,6 +102,8 @@ app.include_router(analytics.router)
 app.include_router(schema_migration.router)
 app.include_router(monitoring.router)  # Production monitoring endpoints
 app.include_router(performance.router)  # Performance metrics endpoints
+app.include_router(billing.router)  # Billing & usage endpoints
+app.include_router(audit.router)  # Audit logs endpoints
 
 
 @app.get("/", tags=["root"])
@@ -105,8 +111,8 @@ async def root():
     """Root endpoint."""
     return {
         "service": "Migration Platform API",
-        "version": "1.0.0",
-        "phase": "Phase 1",
+        "version": "4.0.0",
+        "tier": "Multi-Tenant SaaS",
         "status": "operational"
     }
 

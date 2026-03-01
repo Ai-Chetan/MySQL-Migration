@@ -87,15 +87,14 @@ try {
     # Step 3: Start Backend API
     Write-Host "`n[3/4] Starting Backend API..." -ForegroundColor Yellow
     
-    # Check if virtual environment exists
-    if (Test-Path "venv/Scripts/activate.ps1") {
-        . venv/Scripts/activate.ps1
-        Write-Host "  Using existing virtual environment" -ForegroundColor Cyan
-    } elseif (Test-Path "env/Scripts/activate.ps1") {
-        . env/Scripts/activate.ps1
-        Write-Host "  Using existing virtual environment" -ForegroundColor Cyan
+    # Activate virtual environment from parent directory
+    $venvPath = "E:\Project\venv\Scripts\Activate.ps1"
+    if (Test-Path $venvPath) {
+        . $venvPath
+        Write-Host "  ✓ Virtual environment activated: E:\Project\venv" -ForegroundColor Green
     } else {
-        Write-Host "  No virtual environment found, using system Python" -ForegroundColor Yellow
+        Write-Host "  ⚠ Virtual environment not found at: $venvPath" -ForegroundColor Yellow
+        Write-Host "  Using system Python" -ForegroundColor Yellow
     }
     
     # Install dependencies if needed

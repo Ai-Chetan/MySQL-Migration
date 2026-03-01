@@ -100,7 +100,7 @@ async def get_job_summary(
     job_id: UUID,
     current_user: dict = Depends(get_current_user)
 ):
-"""
+    """
     Get comprehensive summary for a specific migration job.
     
     Includes:

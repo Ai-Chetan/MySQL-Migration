@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 
-from services.api.auth import get_current_user
+from services.api.routers.auth import get_current_user
 from services.worker.db import MetadataConnection
 
 router = APIRouter(

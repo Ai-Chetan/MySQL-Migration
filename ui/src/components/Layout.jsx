@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext.jsx';
-import { Database, LayoutDashboard, Plus, Activity, BarChart3, Users, CreditCard, LogOut, ChevronDown, User, Workflow } from 'lucide-react';
+import { Database, LayoutDashboard, Plus, Activity, BarChart3, Users, CreditCard, Shield, LogOut, ChevronDown, User, Workflow } from 'lucide-react';
 
 export default function Layout() {
   const location = useLocation();
@@ -94,6 +94,17 @@ export default function Layout() {
               >
                 <CreditCard className="w-4 h-4" />
                 <span>Billing</span>
+              </Link>
+              <Link
+                to="/audit"
+                className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-medium transition-colors ${
+                  isActive('/audit')
+                    ? 'bg-primary-50 text-primary-700'
+                    : 'text-neutral-600 hover:bg-neutral-100'
+                }`}
+              >
+                <Shield className="w-4 h-4" />
+                <span>Audit</span>
               </Link>
               
               {/* Schema Migration Dropdown */}
@@ -214,7 +225,7 @@ export default function Layout() {
         <div className="max-w-7xl mx-auto px-6 py-6">
           <div className="flex items-center justify-between">
             <p className="text-sm text-neutral-500">
-              Migration Platform v1.0 | Phase 1 Production
+              Migration Platform v4.0 | Phase 4 - Multi-Tenant SaaS Platform
             </p>
             <div className="flex items-center space-x-6 text-sm text-neutral-500">
               <a href="/api/docs" target="_blank" rel="noreferrer" className="hover:text-primary-600 transition-colors">
