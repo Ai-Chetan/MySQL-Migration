@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: migration-platform
+  labels:
+    name: migration-platform
+    tier: production

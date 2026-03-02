@@ -1,0 +1,43 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: migration-config
+  namespace: migration-platform
+data:
+  # Database Configuration
+  METADATA_DB_HOST: "postgres-service"
+  METADATA_DB_PORT: "5432"
+  METADATA_DB_NAME: "migration_metadata"
+  METADATA_DB_USER: "postgres"
+  
+  # Kafka Configuration
+  KAFKA_BOOTSTRAP_SERVERS: "kafka-service:9092"
+  KAFKA_TOPIC_JOBS: "migration-jobs"
+  KAFKA_TOPIC_CHUNKS: "chunk-tasks"
+  KAFKA_TOPIC_STATUS: "job-status-updates"
+  KAFKA_TOPIC_USAGE: "usage-events"
+  KAFKA_CONSUMER_GROUP: "migration-workers"
+  
+  # Object Storage (MinIO)
+  S3_ENDPOINT: "http://minio-service:9000"
+  S3_BUCKET: "migration-data"
+  S3_REGION: "us-east-1"
+  
+  # Observability
+  PROMETHEUS_PORT: "9090"
+  METRICS_ENABLED: "true"
+  LOG_LEVEL: "INFO"
+  LOG_FORMAT: "json"
+  
+  # Worker Configuration
+  WORKER_REPLICAS: "3"
+  CHUNK_SIZE: "100000"
+  MAX_WORKERS_PER_JOB: "10"
+  
+  # Rate Limiting
+  RATE_LIMIT_WINDOW_SECONDS: "60"
+  
+  # Feature Flags
+  ENABLE_AUTO_SCALING: "true"
+  ENABLE_DISTRIBUTED_LOCKING: "true"
+  ENABLE_OBJECT_STORAGE: "true"

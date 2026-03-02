@@ -17,7 +17,9 @@ from services.api.routers import migrations, auth, analytics, schema_migration, 
 from services.api.metadata import get_metadata_db
 from services.api.recovery_service import get_recovery_service
 from services.api.rate_limiter import RateLimitMiddleware
-# from services.api.config import get_redis_client, close_redis_client  # COMMENTED OUT - Redis will be added later
+from services.api.kafka_service import initialize_kafka, get_kafka_producer
+from services.api.metrics import get_metrics, get_metrics_content_type
+# from services.api.config import get_redis_client, close_redis_client  # REPLACED BY KAFKA
 from services.api.schemas import HealthResponse, MetricsResponse
 from shared.utils import setup_logger
 
@@ -40,15 +42,16 @@ async def lifespan(app: FastAPI):
         metadata_db.initialize_schema("schema.sql")
         logger.info("Metadata database initialized")
         
+        # Initialize Kafka infrastructure
+        if initialize_kafka():
+            logger.info("Kafka infrastructure initialized")
+        else:
+            logger.warning("Kafka initialization skipped (not available)")
+        
         # Start stale chunk recovery service
         recovery_service = get_recovery_service()
         recovery_service.start()
         logger.info("Stale chunk recovery service started")
-        
-        # Test Redis connection (COMMENTED OUT - TO BE ADDED LATER)
-        # redis_client = get_redis_client()
-        # redis_client.ping()
-        # logger.info("Redis connection established")
         
     except Exception as e:
         logger.error(f"Failed to initialize services: {e}")
@@ -78,8 +81,8 @@ async def lifespan(app: FastAPI):
 # Create FastAPI application
 app = FastAPI(
     title="Migration Platform API",
-    description="Multi-Tenant SaaS Database Migration Platform",
-    version="4.0.0",
+    description="Cloud-Scale Distributed Data Migration Platform",
+    version="5.0.0",
     lifespan=lifespan
 )
 
@@ -111,8 +114,10 @@ async def root():
     """Root endpoint."""
     return {
         "service": "Migration Platform API",
-        "version": "4.0.0",
-        "tier": "Multi-Tenant SaaS",
+        "version": "5.0.0",
+        "tier": "Cloud-Scale Distributed System",
+        "phase": "Phase 5",
+        "features": ["kubernetes", "kafka", "s3", "prometheus", "auto-scaling"],
         "status": "operational"
     }
 
@@ -120,12 +125,12 @@ async def root():
 @app.get("/health", response_model=HealthResponse, tags=["health"])
 async def health_check():
     """
-    Health check endpoint.
+    Health check endpoint for Kubernetes liveness/readiness probes.
     
-    Checks connectivity to metadata database and Redis.
+    Checks connectivity to metadata database and Kafka.
     """
     metadata_db_healthy = False
-    redis_healthy = False
+    kafka_healthy = False
     
     try:
         metadata_db = get_metadata_db()
@@ -134,24 +139,42 @@ async def health_check():
         logger.error(f"Metadata DB health check failed: {e}")
     
     try:
-        redis_client = get_redis_client()
-        redis_client.ping()
-        redis_healthy = True
+        # Test Kafka producer availability
+        producer = get_kafka_producer()
+        kafka_healthy = producer is not None
     except Exception as e:
-        logger.error(f"Redis health check failed: {e}")
+        logger.error(f"Kafka health check failed: {e}")
+        kafka_healthy = False
     
-    overall_status = "healthy" if (metadata_db_healthy and redis_healthy) else "unhealthy"
+    overall_status = "healthy" if (metadata_db_healthy and kafka_healthy) else "unhealthy"
     
     return HealthResponse(
         status=overall_status,
         timestamp=datetime.utcnow(),
         metadata_db=metadata_db_healthy,
-        redis=redis_healthy
+        redis=kafka_healthy  # Reusing redis field for Kafka
     )
 
 
-@app.get("/metrics", response_model=MetricsResponse, tags=["metrics"])
-async def get_metrics():
+@app.get("/metrics", tags=["observability"])
+async def prometheus_metrics():
+    """
+    Prometheus metrics endpoint.
+    
+    Returns metrics in Prometheus text format for scraping.
+    """
+    from fastapi.responses import Response
+    from services.api.metrics import get_metrics as get_prom_metrics, get_metrics_content_type as get_prom_content_type
+    
+    metrics_data = get_prom_metrics()
+    return Response(
+        content=metrics_data,
+        media_type=get_prom_content_type()
+    )
+
+
+@app.get("/stats", response_model=MetricsResponse, tags=["metrics"])
+async def get_stats():
     """
     Get system-wide metrics.
     
