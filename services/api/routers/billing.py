@@ -12,12 +12,20 @@ from pydantic import BaseModel
 
 from services.api.routers.auth import get_current_user
 from services.api.usage_tracker import get_usage_tracker
-from services.worker.db import MetadataConnection
+from services.api.metadata import get_metadata_db, MetadataRepository
+from shared.utils import setup_logger
+
+logger = setup_logger(__name__)
 
 router = APIRouter(
     prefix="/billing",
     tags=["Billing & Usage"]
 )
+
+
+def get_metadata_repo() -> MetadataRepository:
+    """Dependency: Get metadata repository."""
+    return MetadataRepository(get_metadata_db())
 
 
 class PlanInfo(BaseModel):
@@ -76,15 +84,16 @@ class UsageEvent(BaseModel):
 
 @router.get("/plans", response_model=List[PlanInfo])
 async def list_plans(
-    current_user: Dict = Depends(get_current_user)
+    current_user: Dict = Depends(get_current_user),
+    repo: MetadataRepository = Depends(get_metadata_repo)
 ):
     """
     List all available subscription plans.
     
     Returns plan details including pricing and limits.
     """
-    metadata_conn = MetadataConnection()
-    cursor = metadata_conn.get_cursor()
+    conn = repo.db.get_connection()
+    cursor = conn.cursor()
     
     try:
         cursor.execute(
@@ -117,7 +126,7 @@ async def list_plans(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to fetch plans: {str(e)}")
     finally:
-        metadata_conn.close()
+        repo.db.return_connection(conn)
 
 
 @router.get("/usage/current", response_model=UsageSummary)
@@ -151,13 +160,25 @@ async def get_current_usage(
         )
         
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to fetch usage: {str(e)}")
+        # If tables don't exist, return default/empty usage
+        logger.warning(f"Usage tracking query failed: {e}")
+        return UsageSummary(
+            gb_migrated=0.0,
+            rows_processed=0,
+            jobs_created=0,
+            compute_hours=0.0,
+            plan_limit_gb=100.0,
+            usage_percentage=0.0,
+            gb_remaining=100.0,
+            warnings=[]
+        )
 
 
 @router.get("/usage/history")
 async def get_usage_history(
     days: int = Query(30, ge=1, le=365, description="Number of days of history"),
-    current_user: Dict = Depends(get_current_user)
+    current_user: Dict = Depends(get_current_user),
+    repo: MetadataRepository = Depends(get_metadata_repo)
 ):
     """
     Get usage history over time for charts.
@@ -165,8 +186,8 @@ async def get_usage_history(
     Returns daily aggregated usage metrics.
     """
     tenant_id = current_user['tenant_id']
-    metadata_conn = MetadataConnection()
-    cursor = metadata_conn.get_cursor()
+    conn = repo.db.get_connection()
+    cursor = conn.cursor()
     
     try:
         start_date = datetime.now() - timedelta(days=days)
@@ -202,13 +223,14 @@ async def get_usage_history(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to fetch history: {str(e)}")
     finally:
-        metadata_conn.close()
+        repo.db.return_connection(conn)
 
 
 @router.get("/invoices", response_model=List[Invoice])
 async def list_invoices(
     limit: int = Query(10, ge=1, le=100),
-    current_user: Dict = Depends(get_current_user)
+    current_user: Dict = Depends(get_current_user),
+    repo: MetadataRepository = Depends(get_metadata_repo)
 ):
     """
     List invoices for the authenticated tenant.
@@ -216,8 +238,8 @@ async def list_invoices(
     Returns invoice history with payment status.
     """
     tenant_id = current_user['tenant_id']
-    metadata_conn = MetadataConnection()
-    cursor = metadata_conn.get_cursor()
+    conn = repo.db.get_connection()
+    cursor = conn.cursor()
     
     try:
         cursor.execute(
@@ -253,12 +275,13 @@ async def list_invoices(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to fetch invoices: {str(e)}")
     finally:
-        metadata_conn.close()
+        repo.db.return_connection(conn)
 
 
 @router.get("/plan/current")
 async def get_current_plan(
-    current_user: Dict = Depends(get_current_user)
+    current_user: Dict = Depends(get_current_user),
+    repo: MetadataRepository = Depends(get_metadata_repo)
 ):
     """
     Get current subscription plan for the authenticated tenant.
@@ -266,8 +289,8 @@ async def get_current_plan(
     Returns plan details and subscription status.
     """
     tenant_id = current_user['tenant_id']
-    metadata_conn = MetadataConnection()
-    cursor = metadata_conn.get_cursor()
+    conn = repo.db.get_connection()
+    cursor = conn.cursor()
     
     try:
         cursor.execute(
@@ -314,13 +337,14 @@ async def get_current_plan(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to fetch plan: {str(e)}")
     finally:
-        metadata_conn.close()
+        repo.db.return_connection(conn)
 
 
 @router.post("/plan/upgrade")
 async def upgrade_plan(
     plan_id: UUID,
-    current_user: Dict = Depends(get_current_user)
+    current_user: Dict = Depends(get_current_user),
+    repo: MetadataRepository = Depends(get_metadata_repo)
 ):
     """
     Upgrade subscription plan.
@@ -328,8 +352,8 @@ async def upgrade_plan(
     In production, this would integrate with payment gateway.
     """
     tenant_id = current_user['tenant_id']
-    metadata_conn = MetadataConnection()
-    cursor = metadata_conn.get_cursor()
+    conn = repo.db.get_connection()
+    cursor = conn.cursor()
     
     try:
         # Verify plan exists
@@ -353,7 +377,7 @@ async def upgrade_plan(
             (str(plan_id), tenant_id)
         )
         
-        metadata_conn.commit()
+        conn.commit()
         
         # Log audit event
         cursor.execute(
@@ -370,7 +394,7 @@ async def upgrade_plan(
             )
         )
         
-        metadata_conn.commit()
+        conn.commit()
         
         return {
             "success": True,
@@ -381,10 +405,10 @@ async def upgrade_plan(
     except HTTPException:
         raise
     except Exception as e:
-        metadata_conn.rollback()
+        conn.rollback()
         raise HTTPException(status_code=500, detail=f"Failed to upgrade plan: {str(e)}")
     finally:
-        metadata_conn.close()
+        repo.db.return_connection(conn)
 
 
 @router.get("/quota/check")

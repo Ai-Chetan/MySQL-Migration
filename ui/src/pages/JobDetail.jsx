@@ -94,7 +94,8 @@ export default function JobDetail() {
   };
 
   const calculateProgress = (completed, total) => {
-    if (total === 0) return 0;
+    if (!total || total === 0) return 0;
+    if (!completed) return 0;
     return Math.round((completed / total) * 100);
   };
 
@@ -139,7 +140,7 @@ export default function JobDetail() {
                 <span>{job.status}</span>
               </span>
               <span className="text-sm text-neutral-500">
-                Created {formatDistanceToNow(new Date(job.created_at), { addSuffix: true })}
+                {job.created_at ? `Created ${formatDistanceToNow(new Date(job.created_at), { addSuffix: true })}` : 'Created recently'}
               </span>
             </div>
             <h1 className="text-2xl font-bold text-neutral-900 mb-1">Migration Job</h1>
@@ -204,9 +205,9 @@ export default function JobDetail() {
                 <Database className="w-5 h-5 text-primary-600" />
               </div>
               <div>
-                <p className="font-semibold text-neutral-900">{job.source_config.database}</p>
-                <p className="text-sm text-neutral-600">{job.source_config.host}:{job.source_config.port}</p>
-                <p className="text-xs text-neutral-500 mt-1">User: {job.source_config.user}</p>
+                <p className="font-semibold text-neutral-900">{job.source_config?.database || 'N/A'}</p>
+                <p className="text-sm text-neutral-600">{job.source_config?.host || 'N/A'}:{job.source_config?.port || 'N/A'}</p>
+                <p className="text-xs text-neutral-500 mt-1">User: {job.source_config?.user || 'N/A'}</p>
               </div>
             </div>
           </div>
@@ -218,9 +219,9 @@ export default function JobDetail() {
                 <Database className="w-5 h-5 text-accent-600" />
               </div>
               <div>
-                <p className="font-semibold text-neutral-900">{job.target_config.database}</p>
-                <p className="text-sm text-neutral-600">{job.target_config.host}:{job.target_config.port}</p>
-                <p className="text-xs text-neutral-500 mt-1">User: {job.target_config.user}</p>
+                <p className="font-semibold text-neutral-900">{job.target_config?.database || 'N/A'}</p>
+                <p className="text-sm text-neutral-600">{job.target_config?.host || 'N/A'}:{job.target_config?.port || 'N/A'}</p>
+                <p className="text-xs text-neutral-500 mt-1">User: {job.target_config?.user || 'N/A'}</p>
               </div>
             </div>
           </div>
@@ -231,22 +232,22 @@ export default function JobDetail() {
       <div className="grid grid-cols-4 gap-4">
         <StatCard
           label="Total Tables"
-          value={job.total_tables}
+          value={job.total_tables || 0}
           icon={<Database className="w-5 h-5 text-neutral-600" />}
         />
         <StatCard
           label="Completed Tables"
-          value={job.completed_tables}
+          value={job.completed_tables || 0}
           icon={<CheckCircle2 className="w-5 h-5 text-accent-600" />}
         />
         <StatCard
           label="Total Chunks"
-          value={job.total_chunks}
+          value={job.total_chunks || 0}
           icon={<Activity className="w-5 h-5 text-primary-600" />}
         />
         <StatCard
           label="Migrated Rows"
-          value={job.migrated_rows.toLocaleString()}
+          value={(job.migrated_rows || 0).toLocaleString()}
           icon={<TrendingUp className="w-5 h-5 text-accent-600" />}
         />
       </div>
@@ -300,9 +301,9 @@ export default function JobDetail() {
                     <div className="flex-1">
                       <p className="font-semibold text-neutral-900 mb-1">{table.table_name}</p>
                       <div className="flex items-center space-x-4 text-sm text-neutral-600">
-                        <span>{table.total_rows.toLocaleString()} rows</span>
+                        <span>{(table.total_rows || 0).toLocaleString()} rows</span>
                         <span>•</span>
-                        <span>{table.completed_chunks}/{table.total_chunks} chunks</span>
+                        <span>{table.completed_chunks || 0}/{table.total_chunks || 0} chunks</span>
                         {table.failed_chunks > 0 && (
                           <>
                             <span>•</span>
@@ -340,14 +341,14 @@ export default function JobDetail() {
             <div>
               <p className="text-neutral-500 mb-1">Created At</p>
               <p className="font-medium text-neutral-900">
-                {format(new Date(job.created_at), 'PPpp')}
+                {job.created_at ? format(new Date(job.created_at), 'PPpp') : 'N/A'}
               </p>
             </div>
             {job.started_at && (
               <div>
                 <p className="text-neutral-500 mb-1">Started At</p>
                 <p className="font-medium text-neutral-900">
-                  {format(new Date(job.started_at), 'PPpp')}
+                  {job.started_at ? format(new Date(job.started_at), 'PPpp') : 'N/A'}
                 </p>
               </div>
             )}
@@ -355,7 +356,7 @@ export default function JobDetail() {
               <div>
                 <p className="text-neutral-500 mb-1">Completed At</p>
                 <p className="font-medium text-neutral-900">
-                  {format(new Date(job.completed_at), 'PPpp')}
+                  {job.completed_at ? format(new Date(job.completed_at), 'PPpp') : 'N/A'}
                 </p>
               </div>
             )}

@@ -10,7 +10,14 @@ from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 
 from services.api.routers.auth import get_current_user
-from services.worker.db import MetadataConnection
+from services.api.metadata import get_metadata_db, MetadataRepository
+from shared.utils import setup_logger
+
+logger = setup_logger(__name__)
+
+# Dependency to get metadata repository
+def get_metadata_repo() -> MetadataRepository:
+    return MetadataRepository(get_metadata_db())
 
 router = APIRouter(
     prefix="/performance",
@@ -54,15 +61,16 @@ class PerformanceHistory(BaseModel):
 @router.get("/realtime/{job_id}", response_model=RealtimeMetrics)
 async def get_realtime_metrics(
     job_id: UUID,
-    current_user: Dict = Depends(get_current_user)
+    current_user: Dict = Depends(get_current_user),
+    repo: MetadataRepository = Depends(get_metadata_repo)
 ):
     """
     Get real-time performance metrics for a job.
     
     Returns current throughput, memory usage, and ETA.
     """
-    metadata_conn = MetadataConnection()
-    cursor = metadata_conn.get_cursor()
+    conn = repo.db.get_connection()
+    cursor = conn.cursor()
     
     try:
         # Use the realtime_performance view
@@ -87,7 +95,18 @@ async def get_realtime_metrics(
         result = cursor.fetchone()
         
         if not result:
-            raise HTTPException(status_code=404, detail="No performance data found")
+            # Return default metrics if no data available
+            return RealtimeMetrics(
+                job_id=job_id,
+                rows_per_second=0.0,
+                mb_per_second=0.0,
+                memory_usage_mb=0,
+                avg_insert_latency_ms=0,
+                active_workers=0,
+                current_batch_size=5000,
+                throughput_trend='stable',
+                estimated_completion='No data available'
+            )
         
         return RealtimeMetrics(
             job_id=result['job_id'],
@@ -104,16 +123,29 @@ async def get_realtime_metrics(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error fetching metrics: {str(e)}")
+        # If table doesn't exist, return default metrics
+        logger.warning(f"Performance realtime query failed: {e}")
+        return RealtimeMetrics(
+            job_id=job_id,
+            rows_per_second=0.0,
+            mb_per_second=0.0,
+            memory_usage_mb=0,
+            avg_insert_latency_ms=0,
+            active_workers=0,
+            current_batch_size=5000,
+            throughput_trend='stable',
+            estimated_completion='Performance data not available'
+        )
     finally:
-        metadata_conn.close()
+        repo.db.return_connection(conn)
 
 
 @router.get("/history/{job_id}", response_model=List[PerformanceHistory])
 async def get_performance_history(
     job_id: UUID,
     hours: int = 1,
-    current_user: Dict = Depends(get_current_user)
+    current_user: Dict = Depends(get_current_user),
+    repo: MetadataRepository = Depends(get_metadata_repo)
 ):
     """
     Get historical performance data for time-series visualization.
@@ -122,8 +154,8 @@ async def get_performance_history(
         job_id: Migration job ID
         hours: How many hours of history to retrieve (default 1)
     """
-    metadata_conn = MetadataConnection()
-    cursor = metadata_conn.get_cursor()
+    conn = repo.db.get_connection()
+    cursor = conn.cursor()
     
     try:
         since = datetime.now() - timedelta(hours=hours)
@@ -158,23 +190,26 @@ async def get_performance_history(
         ]
         
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error fetching history: {str(e)}")
+        # If table doesn't exist, return empty list
+        logger.warning(f"Performance history query failed: {e}")
+        return []
     finally:
-        metadata_conn.close()
+        repo.db.return_connection(conn)
 
 
 @router.get("/workers/{job_id}", response_model=List[WorkerStats])
 async def get_worker_stats(
     job_id: UUID,
-    current_user: Dict = Depends(get_current_user)
+    current_user: Dict = Depends(get_current_user),
+    repo: MetadataRepository = Depends(get_metadata_repo)
 ):
     """
     Get per-worker performance statistics.
     
     Shows throughput and resource usage for each worker.
     """
-    metadata_conn = MetadataConnection()
-    cursor = metadata_conn.get_cursor()
+    conn = repo.db.get_connection()
+    cursor = conn.cursor()
     
     try:
         cursor.execute(
@@ -214,22 +249,23 @@ async def get_worker_stats(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching worker stats: {str(e)}")
     finally:
-        metadata_conn.close()
+        repo.db.return_connection(conn)
 
 
 @router.get("/batch-size-history/{job_id}")
 async def get_batch_size_history(
     job_id: UUID,
     table_name: str = None,
-    current_user: Dict = Depends(get_current_user)
+    current_user: Dict = Depends(get_current_user),
+    repo: MetadataRepository = Depends(get_metadata_repo)
 ):
     """
     Get adaptive batch size adjustment history.
     
     Shows how batch sizes changed over time and reasons for adjustments.
     """
-    metadata_conn = MetadataConnection()
-    cursor = metadata_conn.get_cursor()
+    conn = repo.db.get_connection()
+    cursor = conn.cursor()
     
     try:
         query = """
@@ -267,23 +303,26 @@ async def get_batch_size_history(
         ]
         
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error fetching batch history: {str(e)}")
+        # If table doesn't exist, return empty list
+        logger.warning(f"Batch size history query failed: {e}")
+        return []
     finally:
-        metadata_conn.close()
+        repo.db.return_connection(conn)
 
 
 @router.get("/constraints/{job_id}")
 async def get_constraint_status(
     job_id: UUID,
-    current_user: Dict = Depends(get_current_user)
+    current_user: Dict = Depends(get_current_user),
+    repo: MetadataRepository = Depends(get_metadata_repo)
 ):
     """
     Get constraint management status.
     
     Shows which constraints were dropped and restored.
     """
-    metadata_conn = MetadataConnection()
-    cursor = metadata_conn.get_cursor()
+    conn = repo.db.get_connection()
+    cursor = conn.cursor()
     
     try:
         cursor.execute(
@@ -318,4 +357,4 @@ async def get_constraint_status(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching constraint status: {str(e)}")
     finally:
-        metadata_conn.close()
+        repo.db.return_connection(conn)

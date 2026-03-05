@@ -75,7 +75,7 @@ class ApiClient {
 
   // Metrics
   async getMetrics() {
-    const response = await this.client.get('/metrics');
+    const response = await this.client.get('/stats');
     return response.data;
   }
 
@@ -230,6 +230,32 @@ class ApiClient {
   async retryChunk(jobId, chunkId) {
     const response = await this.client.post(`/migrations/${jobId}/chunks/${chunkId}/retry`);
     return response.data;
+  }
+
+  // Generic HTTP methods for flexibility
+  async get(url, config) {
+    const response = await this.client.get(url, config);
+    return response;
+  }
+
+  async post(url, data, config) {
+    const response = await this.client.post(url, data, config);
+    return response;
+  }
+
+  async put(url, data, config) {
+    const response = await this.client.put(url, data, config);
+    return response;
+  }
+
+  async patch(url, data, config) {
+    const response = await this.client.patch(url, data, config);
+    return response;
+  }
+
+  async delete(url, config) {
+    const response = await this.client.delete(url, config);
+    return response;
   }
 }
 

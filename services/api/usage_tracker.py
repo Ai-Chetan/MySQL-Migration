@@ -9,6 +9,7 @@ from datetime import datetime
 from decimal import Decimal
 
 from services.worker.db import MetadataConnection
+from services.api.metadata import get_metadata_db
 from shared.utils import setup_logger
 
 logger = setup_logger(__name__)
@@ -315,5 +316,12 @@ class UsageTracker:
 
 def get_usage_tracker() -> UsageTracker:
     """Get usage tracker instance."""
-    metadata_conn = MetadataConnection()
+    db = get_metadata_db()
+    metadata_conn = MetadataConnection(
+        host=db.host,
+        port=db.port,
+        database=db.database,
+        user=db.user,
+        password=db.password
+    )
     return UsageTracker(metadata_conn)

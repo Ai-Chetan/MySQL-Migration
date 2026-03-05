@@ -10,12 +10,17 @@ from fastapi import APIRouter, HTTPException, Depends, Query
 from pydantic import BaseModel
 
 from services.api.routers.auth import get_current_user
-from services.worker.db import MetadataConnection
+from services.api.metadata import get_metadata_db, MetadataRepository
 
 router = APIRouter(
     prefix="/audit",
     tags=["Audit Logs"]
 )
+
+
+def get_metadata_repo() -> MetadataRepository:
+    """Dependency: Get metadata repository."""
+    return MetadataRepository(get_metadata_db())
 
 
 class AuditLogEntry(BaseModel):
@@ -51,7 +56,8 @@ async def list_audit_logs(
     status: Optional[str] = Query(None, description="Filter by status (success/failed)"),
     days: int = Query(7, ge=1, le=90, description="Number of days of history"),
     limit: int = Query(100, ge=1, le=1000),
-    current_user: Dict = Depends(get_current_user)
+    current_user: Dict = Depends(get_current_user),
+    repo: MetadataRepository = Depends(get_metadata_repo)
 ):
     """
     List audit logs for the authenticated tenant.
@@ -59,8 +65,8 @@ async def list_audit_logs(
     Returns filtered audit trail with user actions and outcomes.
     """
     tenant_id = current_user['tenant_id']
-    metadata_conn = MetadataConnection()
-    cursor = metadata_conn.get_cursor()
+    conn = repo.db.get_connection()
+    cursor = conn.cursor()
     
     try:
         start_date = datetime.now() - timedelta(days=days)
@@ -119,22 +125,23 @@ async def list_audit_logs(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to fetch audit logs: {str(e)}")
     finally:
-        metadata_conn.close()
+        repo.db.return_connection(conn)
 
 
 @router.get("/summary", response_model=AuditSummary)
 async def get_audit_summary(
     days: int = Query(30, ge=1, le=365),
-    current_user: Dict = Depends(get_current_user)
+    current_user: Dict = Depends(get_current_user),
+    repo: MetadataRepository = Depends(get_metadata_repo)
 ):
     """
-    Get audit activity summary for the authenticated tenant.
+    Get audit activity summary.
     
-    Returns aggregated statistics about user actions.
+    Returns aggregated statistics on user actions.
     """
     tenant_id = current_user['tenant_id']
-    metadata_conn = MetadataConnection()
-    cursor = metadata_conn.get_cursor()
+    conn = repo.db.get_connection()
+    cursor = conn.cursor()
     
     try:
         start_date = datetime.now() - timedelta(days=days)
@@ -182,12 +189,13 @@ async def get_audit_summary(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to fetch summary: {str(e)}")
     finally:
-        metadata_conn.close()
+        repo.db.return_connection(conn)
 
 
 @router.get("/actions")
 async def list_action_types(
-    current_user: Dict = Depends(get_current_user)
+    current_user: Dict = Depends(get_current_user),
+    repo: MetadataRepository = Depends(get_metadata_repo)
 ):
     """
     List all unique action types available for filtering.
@@ -195,8 +203,8 @@ async def list_action_types(
     Returns list of action types that have been logged.
     """
     tenant_id = current_user['tenant_id']
-    metadata_conn = MetadataConnection()
-    cursor = metadata_conn.get_cursor()
+    conn = repo.db.get_connection()
+    cursor = conn.cursor()
     
     try:
         cursor.execute(
@@ -216,14 +224,15 @@ async def list_action_types(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to fetch actions: {str(e)}")
     finally:
-        metadata_conn.close()
+        repo.db.return_connection(conn)
 
 
 @router.get("/user-activity/{user_id}")
 async def get_user_activity(
     user_id: UUID,
     days: int = Query(30, ge=1, le=365),
-    current_user: Dict = Depends(get_current_user)
+    current_user: Dict = Depends(get_current_user),
+    repo: MetadataRepository = Depends(get_metadata_repo)
 ):
     """
     Get activity history for a specific user.
@@ -231,8 +240,8 @@ async def get_user_activity(
     Returns user's actions and timestamps.
     """
     tenant_id = current_user['tenant_id']
-    metadata_conn = MetadataConnection()
-    cursor = metadata_conn.get_cursor()
+    conn = repo.db.get_connection()
+    cursor = conn.cursor()
     
     try:
         start_date = datetime.now() - timedelta(days=days)
@@ -273,7 +282,7 @@ async def get_user_activity(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to fetch user activity: {str(e)}")
     finally:
-        metadata_conn.close()
+        repo.db.return_connection(conn)
 
 
 def log_audit_event(
@@ -303,8 +312,9 @@ def log_audit_event(
         status: 'success' or 'failed'
         error_message: Error message if failed
     """
-    metadata_conn = MetadataConnection()
-    cursor = metadata_conn.get_cursor()
+    repo = get_metadata_repo()
+    conn = repo.db.get_connection()
+    cursor = conn.cursor()
     
     try:
         cursor.execute(
@@ -328,10 +338,10 @@ def log_audit_event(
             )
         )
         
-        metadata_conn.commit()
+        conn.commit()
         
     except Exception as e:
-        metadata_conn.rollback()
+        conn.rollback()
         print(f"Failed to log audit event: {e}")
     finally:
-        metadata_conn.close()
+        repo.db.return_connection(conn)

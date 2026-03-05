@@ -60,7 +60,7 @@ export default function CreateJob() {
       setSuccess(true);
       
       setTimeout(() => {
-        navigate(`/jobs/${job.id}`);
+        navigate(`/jobs/${job.job_id}`);
       }, 1500);
     } catch (err) {
       setError(err.response?.data?.detail || err.message);

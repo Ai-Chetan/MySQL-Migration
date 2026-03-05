@@ -6,7 +6,7 @@ import {
 } from 'recharts';
 import { 
   Activity, TrendingUp, Users, Clock, AlertCircle, 
-  CheckCircle2, Zap, Database, Gauge, Memory, ArrowLeft 
+  CheckCircle2, Zap, Database, Gauge, Cpu, ArrowLeft 
 } from 'lucide-react';
 import { format } from 'date-fns';
 import apiClient from '../services/api.js';
@@ -178,7 +178,7 @@ export default function PerformanceMetricsPage() {
             <div className="card p-6 hover:shadow-lg transition-shadow">
               <div className="flex items-center justify-between mb-4">
                 <div className="p-3 bg-accent-100 rounded-lg">
-                  <Memory className="w-6 h-6 text-accent-600" />
+                  <Cpu className="w-6 h-6 text-accent-600" />
                 </div>
               </div>
               <h3 className="text-sm font-medium text-neutral-600 mb-1">Memory Usage</h3>

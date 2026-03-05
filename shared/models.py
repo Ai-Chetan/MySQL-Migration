@@ -63,6 +63,8 @@ class MigrationJobSummary(BaseModel):
     id: UUID
     status: JobStatus
     tenant_id: str
+    source_config: Optional[DatabaseConfig] = None
+    target_config: Optional[DatabaseConfig] = None
     total_tables: int
     total_chunks: int
     completed_chunks: int

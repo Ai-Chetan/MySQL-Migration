@@ -11,6 +11,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from uuid import UUID
 
 from services.worker.db import MetadataConnection
+from services.api.metadata import get_metadata_db
 from shared.utils import setup_logger
 
 logger = setup_logger(__name__)
@@ -73,7 +74,14 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
     
     def _get_tenant_limit(self, tenant_id: UUID) -> int:
         """Get rate limit for tenant based on their plan."""
-        metadata_conn = MetadataConnection()
+        db = get_metadata_db()
+        metadata_conn = MetadataConnection(
+            host=db.host,
+            port=db.port,
+            database=db.database,
+            user=db.user,
+            password=db.password
+        )
         cursor = metadata_conn.get_cursor()
         
         try:
@@ -112,7 +120,14 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         Returns:
             (allowed, remaining_requests, reset_timestamp)
         """
-        metadata_conn = MetadataConnection()
+        db = get_metadata_db()
+        metadata_conn = MetadataConnection(
+            host=db.host,
+            port=db.port,
+            database=db.database,
+            user=db.user,
+            password=db.password
+        )
         cursor = metadata_conn.get_cursor()
         
         try:
@@ -191,7 +206,14 @@ class RateLimitChecker:
         Returns:
             Dictionary with allowed status and details
         """
-        metadata_conn = MetadataConnection()
+        db = get_metadata_db()
+        metadata_conn = MetadataConnection(
+            host=db.host,
+            port=db.port,
+            database=db.database,
+            user=db.user,
+            password=db.password
+        )
         cursor = metadata_conn.get_cursor()
         
         try:

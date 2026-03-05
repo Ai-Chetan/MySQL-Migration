@@ -71,7 +71,8 @@ export default function Dashboard() {
   };
 
   const calculateProgress = (job) => {
-    if (job.total_chunks === 0) return 0;
+    if (!job.total_chunks || job.total_chunks === 0) return 0;
+    if (!job.completed_chunks) return 0;
     return Math.round((job.completed_chunks / job.total_chunks) * 100);
   };
 
@@ -173,13 +174,13 @@ export default function Dashboard() {
                       <div>
                         <p className="text-xs text-neutral-500 mb-1">Source Database</p>
                         <p className="text-sm font-medium text-neutral-900">
-                          {job.source_config.database}@{job.source_config.host}
+                          {job.source_config?.database || 'N/A'}@{job.source_config?.host || 'N/A'}
                         </p>
                       </div>
                       <div>
                         <p className="text-xs text-neutral-500 mb-1">Target Database</p>
                         <p className="text-sm font-medium text-neutral-900">
-                          {job.target_config.database}@{job.target_config.host}
+                          {job.target_config?.database || 'N/A'}@{job.target_config?.host || 'N/A'}
                         </p>
                       </div>
                     </div>
@@ -205,16 +206,16 @@ export default function Dashboard() {
                       <div className="flex items-center space-x-2">
                         <Database className="w-4 h-4 text-neutral-400" />
                         <span className="text-neutral-600">
-                          {job.completed_tables}/{job.total_tables} tables
+                          {job.completed_tables || 0}/{job.total_tables || 0} tables
                         </span>
                       </div>
                       <div className="flex items-center space-x-2">
                         <Activity className="w-4 h-4 text-neutral-400" />
                         <span className="text-neutral-600">
-                          {job.completed_chunks}/{job.total_chunks} chunks
+                          {job.completed_chunks || 0}/{job.total_chunks || 0} chunks
                         </span>
                       </div>
-                      {job.migrated_rows > 0 && (
+                      {job.migrated_rows && job.migrated_rows > 0 && (
                         <div className="flex items-center space-x-2">
                           <TrendingUp className="w-4 h-4 text-neutral-400" />
                           <span className="text-neutral-600">

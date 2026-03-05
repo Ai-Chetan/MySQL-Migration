@@ -424,9 +424,19 @@ async def generate_migration_script(
         
         connection_info = conn_manager.connections[conn_id]
         
-        # TODO: Get schemas (need schema storage)
+        # Get schemas for source tables from database
         old_schema = {}
-        new_schemas = {}
+        for source_table in mapping.source_tables:
+            try:
+                schema_info = conn_manager.get_table_schema(conn_id, source_table)
+                old_schema[source_table] = schema_info
+            except Exception as e:
+                logger.warning(f"Could not get schema for {source_table}: {e}")
+                old_schema[source_table] = {"columns": []}
+        
+        # For now, use empty schemas for target tables (they should be defined elsewhere)
+        # In a full implementation, these would come from parsed schema files
+        new_schemas = {table: {"columns": []} for table in mapping.target_tables}
         
         script_path = ScriptGenerator.generate_manual_script(
             mapping=mapping,

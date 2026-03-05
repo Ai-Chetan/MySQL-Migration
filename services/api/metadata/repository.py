@@ -411,6 +411,45 @@ class MetadataRepository:
         finally:
             self.db.return_connection(conn)
     
+    def count_chunks_by_status(self, table_id: UUID) -> Dict[str, int]:
+        """
+        Count chunks by status for a specific table.
+        
+        Args:
+            table_id: Table UUID
+        
+        Returns:
+            Dict with counts by status and total count
+        """
+        conn = self.db.get_connection()
+        
+        try:
+            cursor = conn.cursor()
+            
+            # Get count by status
+            cursor.execute(
+                """
+                SELECT status, COUNT(*) as count
+                FROM migration_chunks
+                WHERE table_id = %s
+                GROUP BY status
+                """,
+                (str(table_id),)
+            )
+            
+            counts = {row['status']: row['count'] for row in cursor.fetchall()}
+            
+            # Add total count
+            cursor.execute(
+                "SELECT COUNT(*) as total FROM migration_chunks WHERE table_id = %s",
+                (str(table_id),)
+            )
+            counts['total'] = cursor.fetchone()['total']
+            
+            return counts
+        finally:
+            self.db.return_connection(conn)
+    
     def get_stale_chunks(self, heartbeat_threshold_seconds: int = 120) -> List[UUID]:
         """
         Find chunks stuck in running state.

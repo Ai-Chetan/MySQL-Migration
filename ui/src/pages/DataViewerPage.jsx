@@ -53,7 +53,7 @@ export default function DataViewerPage() {
 
   const loadConnection = async () => {
     try {
-      const response = await axios.get(`http://localhost:8000/api/schema-migration/connections`);
+      const response = await axios.get(`http://localhost:8000/schema-migration/connections`);
       const conn = response.data.find(c => c.id === connectionId);
       setConnection(conn);
     } catch (err) {
@@ -69,7 +69,7 @@ export default function DataViewerPage() {
     try {
       const offset = (currentPage - 1) * pageSize;
       const response = await axios.get(
-        `http://localhost:8000/api/schema-migration/connections/${connectionId}/tables/${tableName}/data`,
+        `http://localhost:8000/schema-migration/connections/${connectionId}/tables/${tableName}/data`,
         {
           params: { limit: pageSize, offset }
         }
@@ -84,7 +84,7 @@ export default function DataViewerPage() {
       } else {
         // If no data, try to get schema
         const schemaResponse = await axios.get(
-          `http://localhost:8000/api/schema-migration/connections/${connectionId}/tables/${tableName}/schema`
+          `http://localhost:8000/schema-migration/connections/${connectionId}/tables/${tableName}/schema`
         );
         setColumns(schemaResponse.data.columns.map(col => col.name));
       }
@@ -100,7 +100,7 @@ export default function DataViewerPage() {
     setExporting(true);
     try {
       const response = await axios.post(
-        `http://localhost:8000/api/schema-migration/export/data`,
+        `http://localhost:8000/schema-migration/export/data`,
         {
           connection_id: connectionId,
           table_name: tableName,

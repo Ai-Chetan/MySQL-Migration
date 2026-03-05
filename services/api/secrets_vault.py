@@ -13,6 +13,7 @@ from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 import os
 
 from services.worker.db import MetadataConnection
+from services.api.metadata import get_metadata_db
 from shared.utils import setup_logger
 
 logger = setup_logger(__name__)
@@ -335,5 +336,12 @@ class SecretsVault:
 
 def get_secrets_vault() -> SecretsVault:
     """Get secrets vault instance."""
-    metadata_conn = MetadataConnection()
+    db = get_metadata_db()
+    metadata_conn = MetadataConnection(
+        host=db.host,
+        port=db.port,
+        database=db.database,
+        user=db.user,
+        password=db.password
+    )
     return SecretsVault(metadata_conn)

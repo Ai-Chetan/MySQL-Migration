@@ -269,6 +269,8 @@ async def list_migrations(
                 id=UUID(j['id']) if isinstance(j['id'], str) else j['id'],
                 status=JobStatus(j['status']),
                 tenant_id=j['tenant_id'],
+                source_config=j.get('source_config'),
+                target_config=j.get('target_config'),
                 total_tables=j['total_tables'],
                 total_chunks=j['total_chunks'],
                 completed_chunks=j['completed_chunks'],
@@ -303,7 +305,7 @@ async def get_job_tables(
             raise HTTPException(status_code=404, detail="Job not found")
         
         # Get tables
-        tables = repo.get_tables_for_job(job_id)
+        tables = repo.get_tables_by_job(job_id)
         
         result = []
         for table in tables:
@@ -355,7 +357,7 @@ async def get_table_chunks(
             SELECT *
             FROM migration_chunks
             WHERE job_id = %s AND table_id = %s
-            ORDER BY chunk_number ASC
+            ORDER BY pk_start ASC
             """,
             (str(job_id), str(table_id))
         )
@@ -364,25 +366,25 @@ async def get_table_chunks(
         repo.db.return_connection(conn)
         
         result = []
-        for chunk in chunks:
+        for idx, chunk in enumerate(chunks, start=1):
             result.append(ChunkDetailResponse(
                 id=UUID(chunk['id']) if isinstance(chunk['id'], str) else chunk['id'],
                 job_id=job_id,
                 table_id=table_id,
                 table_name=chunk.get('table_name', ''),
-                chunk_number=chunk['chunk_number'],
-                start_pk=chunk['start_pk'],
-                end_pk=chunk['end_pk'],
+                chunk_number=idx,  # Generate sequential number
+                start_pk=chunk['pk_start'],
+                end_pk=chunk['pk_end'],
                 status=chunk['status'],
-                estimated_rows=chunk.get('estimated_rows', 0),
-                actual_rows=chunk.get('actual_rows'),
+                estimated_rows=chunk['pk_end'] - chunk['pk_start'] + 1,
+                actual_rows=chunk.get('rows_processed'),
                 retry_count=chunk.get('retry_count', 0),
                 worker_id=chunk.get('worker_id'),
                 last_heartbeat=chunk.get('last_heartbeat'),
                 created_at=chunk['created_at'],
                 started_at=chunk.get('started_at'),
                 completed_at=chunk.get('completed_at'),
-                error_message=chunk.get('error_message')
+                error_message=chunk.get('last_error')
             ))
         
         return result
